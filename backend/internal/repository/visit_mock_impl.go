@@ -124,6 +124,22 @@ func (r *MockVisitRepository) Update(_ context.Context, id string, input UpdateV
 	if input.Destination != nil {
 		visit.Destination = strings.TrimSpace(*input.Destination)
 	}
+	if input.SetFollowUpAt {
+		if input.FollowUpAt == nil {
+			visit.FollowUpAt = nil
+		} else {
+			followUpAt := input.FollowUpAt.UTC()
+			visit.FollowUpAt = &followUpAt
+		}
+	}
+	if input.FollowUpNote != nil {
+		note := strings.TrimSpace(*input.FollowUpNote)
+		if note == "" {
+			visit.FollowUpNote = nil
+		} else {
+			visit.FollowUpNote = &note
+		}
+	}
 	visit.UpdatedAt = time.Now().UTC()
 	r.visits[id] = visit
 
@@ -156,6 +172,24 @@ func (r *MockVisitRepository) CountObservationToday(_ context.Context, now time.
 			continue
 		}
 		if !visit.CreatedAt.Before(start) {
+			count++
+		}
+	}
+
+	return count, nil
+}
+
+func (r *MockVisitRepository) CountDueFollowUps(_ context.Context, now time.Time) (int64, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	cutoff := now.UTC()
+	var count int64
+	for _, visit := range r.visits {
+		if visit.FollowUpAt == nil {
+			continue
+		}
+		if !visit.FollowUpAt.After(cutoff) {
 			count++
 		}
 	}

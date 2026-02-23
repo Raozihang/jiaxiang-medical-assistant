@@ -24,17 +24,19 @@ type PageResult[T any] struct {
 }
 
 type Visit struct {
-	ID           string    `json:"id"`
-	StudentID    string    `json:"student_id"`
-	StudentName  string    `json:"student_name"`
-	ClassName    string    `json:"class_name"`
-	Symptoms     []string  `json:"symptoms"`
-	Description  string    `json:"description"`
-	Diagnosis    string    `json:"diagnosis"`
-	Prescription []string  `json:"prescription"`
-	Destination  string    `json:"destination"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID           string     `json:"id"`
+	StudentID    string     `json:"student_id"`
+	StudentName  string     `json:"student_name"`
+	ClassName    string     `json:"class_name"`
+	Symptoms     []string   `json:"symptoms"`
+	Description  string     `json:"description"`
+	Diagnosis    string     `json:"diagnosis"`
+	Prescription []string   `json:"prescription"`
+	Destination  string     `json:"destination"`
+	FollowUpAt   *time.Time `json:"follow_up_at"`
+	FollowUpNote *string    `json:"follow_up_note"`
+	CreatedAt    time.Time  `json:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
 }
 
 type VisitListParams struct {
@@ -50,9 +52,12 @@ type CreateVisitInput struct {
 }
 
 type UpdateVisitInput struct {
-	Diagnosis    *string
-	Prescription *[]string
-	Destination  *string
+	Diagnosis     *string
+	Prescription  *[]string
+	Destination   *string
+	FollowUpAt    *time.Time
+	SetFollowUpAt bool
+	FollowUpNote  *string
 }
 
 type VisitRepository interface {
@@ -62,6 +67,7 @@ type VisitRepository interface {
 	Update(ctx context.Context, id string, input UpdateVisitInput) (Visit, error)
 	CountToday(ctx context.Context, now time.Time) (int64, error)
 	CountObservationToday(ctx context.Context, now time.Time) (int64, error)
+	CountDueFollowUps(ctx context.Context, now time.Time) (int64, error)
 	EnsureSeedData(ctx context.Context) error
 }
 

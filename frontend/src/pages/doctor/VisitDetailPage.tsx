@@ -3,6 +3,7 @@ import {
   Button,
   Card,
   Col,
+  DatePicker,
   Descriptions,
   Divider,
   Form,
@@ -15,6 +16,7 @@ import {
   Tag,
   Typography,
 } from "antd";
+import dayjs, { type Dayjs } from "dayjs";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
@@ -34,6 +36,8 @@ type UpdateForm = {
   diagnosis: string;
   prescription: string;
   destination: string;
+  follow_up_at: Dayjs | null;
+  follow_up_note: string;
 };
 
 type AILoadingState = {
@@ -101,6 +105,23 @@ function destinationTagColor(value: string) {
   return "blue";
 }
 
+function parseFollowUpAt(value: string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = dayjs(value);
+  return parsed.isValid() ? parsed : null;
+}
+
+function formatFollowUpAt(value: string | null | undefined) {
+  const parsed = parseFollowUpAt(value);
+  if (!parsed) {
+    return "-";
+  }
+  return parsed.format("YYYY-MM-DD HH:mm");
+}
+
 export function VisitDetailPage() {
   const { id } = useParams();
   const [loading, setLoading] = useState(false);
@@ -140,6 +161,8 @@ export function VisitDetailPage() {
         diagnosis: data.diagnosis ?? "",
         prescription: data.prescription.join(", "),
         destination: normalizeDestination(data.destination),
+        follow_up_at: parseFollowUpAt(data.follow_up_at),
+        follow_up_note: data.follow_up_note ?? "",
       });
       setAnalyzeResult(null);
       setTriageResult(null);
@@ -294,6 +317,8 @@ export function VisitDetailPage() {
         diagnosis: values.diagnosis,
         prescription,
         destination: values.destination,
+        follow_up_at: values.follow_up_at ? values.follow_up_at.toDate().toISOString() : "",
+        follow_up_note: values.follow_up_note.trim(),
       });
       messageApi.success("就诊记录已更新");
       await loadDetail();
@@ -328,6 +353,10 @@ export function VisitDetailPage() {
               <Descriptions.Item label="当前去向">
                 <Tag color={destinationTagColor(visit.destination)}>{destinationLabel(visit.destination)}</Tag>
               </Descriptions.Item>
+              <Descriptions.Item label="复诊提醒">{formatFollowUpAt(visit.follow_up_at)}</Descriptions.Item>
+              <Descriptions.Item label="复诊备注" span={2}>
+                {visit.follow_up_note?.trim() || "-"}
+              </Descriptions.Item>
             </Descriptions>
 
             <Form layout="vertical" form={form} onFinish={(values) => void handleSave(values)}>
@@ -346,6 +375,17 @@ export function VisitDetailPage() {
                     { label: "Urgent", value: "urgent" },
                   ]}
                 />
+              </Form.Item>
+              <Form.Item label="复诊时间" name="follow_up_at">
+                <DatePicker
+                  showTime={{ format: "HH:mm" }}
+                  format="YYYY-MM-DD HH:mm"
+                  placeholder="请选择复诊时间"
+                  style={{ width: "100%" }}
+                />
+              </Form.Item>
+              <Form.Item label="复诊备注" name="follow_up_note">
+                <Input.TextArea rows={3} placeholder="可填写复诊关注点或提醒说明" />
               </Form.Item>
               <Button htmlType="submit" type="primary" loading={saving}>
                 保存就诊记录

@@ -170,6 +170,22 @@ func (r *GormVisitRepository) Update(ctx context.Context, id string, input Updat
 	if input.Destination != nil {
 		row.Destination = strings.TrimSpace(*input.Destination)
 	}
+	if input.SetFollowUpAt {
+		if input.FollowUpAt == nil {
+			row.FollowUpAt = nil
+		} else {
+			followUpAt := input.FollowUpAt.UTC()
+			row.FollowUpAt = &followUpAt
+		}
+	}
+	if input.FollowUpNote != nil {
+		note := strings.TrimSpace(*input.FollowUpNote)
+		if note == "" {
+			row.FollowUpNote = nil
+		} else {
+			row.FollowUpNote = &note
+		}
+	}
 	row.UpdatedAt = time.Now().UTC()
 
 	if err := r.db.WithContext(ctx).Save(&row).Error; err != nil {
@@ -199,6 +215,16 @@ func (r *GormVisitRepository) CountObservationToday(ctx context.Context, now tim
 		Model(&model.Visit{}).
 		Where("created_at >= ?", dayStart(now)).
 		Where("destination = ?", "observation").
+		Count(&count).Error
+	return count, err
+}
+
+func (r *GormVisitRepository) CountDueFollowUps(ctx context.Context, now time.Time) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&model.Visit{}).
+		Where("follow_up_at IS NOT NULL").
+		Where("follow_up_at <= ?", now.UTC()).
 		Count(&count).Error
 	return count, err
 }
@@ -285,6 +311,8 @@ func toVisitDTO(row model.Visit, student model.Student) Visit {
 		Diagnosis:    row.Diagnosis,
 		Prescription: prescription,
 		Destination:  row.Destination,
+		FollowUpAt:   row.FollowUpAt,
+		FollowUpNote: row.FollowUpNote,
 		CreatedAt:    row.CreatedAt,
 		UpdatedAt:    row.UpdatedAt,
 	}

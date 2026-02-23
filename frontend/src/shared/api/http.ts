@@ -1,14 +1,11 @@
 import axios from "axios";
 import { env } from "@/shared/config/env";
+import { clearAuth, getStoredToken } from "@/shared/auth/session";
 
-const TOKEN_KEY = "jx_medical_token";
-
-export function getStoredToken() {
-  return window.localStorage.getItem(TOKEN_KEY);
-}
-
-export function setStoredToken(token: string) {
-  window.localStorage.setItem(TOKEN_KEY, token);
+function redirectToLoginIfNeeded() {
+  if (window.location.pathname !== "/login") {
+    window.location.assign("/login");
+  }
 }
 
 export const http = axios.create({
@@ -28,5 +25,11 @@ http.interceptors.request.use((config) => {
 
 http.interceptors.response.use(
   (response) => response,
-  (error) => Promise.reject(error),
+  (error) => {
+    if (error?.response?.status === 401) {
+      clearAuth();
+      redirectToLoginIfNeeded();
+    }
+    return Promise.reject(error);
+  },
 );

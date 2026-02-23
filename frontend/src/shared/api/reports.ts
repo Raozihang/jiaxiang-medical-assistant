@@ -11,6 +11,7 @@ export type OverviewReport = {
   today_visits: number;
   observation_students: number;
   stock_warnings: number;
+  due_follow_ups: number;
 };
 
 export type ReportSummary = {
@@ -149,6 +150,8 @@ function parseOverview(value: unknown): OverviewReport {
         ]),
       ) ?? 0,
     stock_warnings: toNumber(pickFirst(record, ["stock_warnings", "stockWarnings"])) ?? 0,
+    due_follow_ups:
+      toNumber(pickFirst(record, ["due_follow_ups", "dueFollowUps", "follow_up_due"])) ?? 0,
   };
 }
 
