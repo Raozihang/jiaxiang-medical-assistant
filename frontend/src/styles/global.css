@@ -41,3 +41,11 @@ body,
 .app-content {
   padding: 20px;
 }
+
+.app-loading {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #475569;
+}

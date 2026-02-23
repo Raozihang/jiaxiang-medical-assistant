@@ -13,14 +13,17 @@ import (
 	"gorm.io/gorm"
 )
 
-func registerRoutes(engine *gin.Engine, cfg config.Config, db *gorm.DB) {
+func registerRoutes(engine *gin.Engine, cfg config.Config, db *gorm.DB) error {
 	dataMode := cfg.ResolveDataMode(db != nil)
 	visitRepo, medicineRepo := buildRepositories(dataMode, db)
 
 	visitService := service.NewVisitService(visitRepo)
 	medicineService := service.NewMedicineService(medicineRepo)
 	reportService := service.NewReportService(visitRepo, medicineRepo)
-	authService := service.NewAuthService(cfg, dataMode)
+	authService, err := service.NewAuthService(cfg, dataMode)
+	if err != nil {
+		return err
+	}
 
 	seedContext := context.Background()
 	if err := visitService.EnsureSeedData(seedContext); err != nil {
@@ -57,6 +60,8 @@ func registerRoutes(engine *gin.Engine, cfg config.Config, db *gorm.DB) {
 			protected.GET("/reports/overview", reportHandler.Overview)
 		}
 	}
+
+	return nil
 }
 
 func buildRepositories(dataMode string, db *gorm.DB) (repository.VisitRepository, repository.MedicineRepository) {

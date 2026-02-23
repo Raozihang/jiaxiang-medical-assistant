@@ -1,8 +1,6 @@
 package service
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"errors"
 	"strings"
 	"time"
@@ -48,10 +46,25 @@ type TokenClaims struct {
 	jwt.RegisteredClaims
 }
 
-func NewAuthService(cfg config.Config, dataMode string) *AuthService {
+func NewAuthService(cfg config.Config, dataMode string) (*AuthService, error) {
+	doctorAccount := strings.TrimSpace(cfg.Auth.DoctorAccount)
+	adminAccount := strings.TrimSpace(cfg.Auth.AdminAccount)
+	if doctorAccount == "" || adminAccount == "" {
+		return nil, errors.New("auth account config is required")
+	}
+	if doctorAccount == adminAccount {
+		return nil, errors.New("doctor and admin accounts must be unique")
+	}
+
+	doctorPassword := strings.TrimSpace(cfg.Auth.DoctorPassword)
+	adminPassword := strings.TrimSpace(cfg.Auth.AdminPassword)
+	if doctorPassword == "" || adminPassword == "" {
+		return nil, errors.New("auth password config is required")
+	}
+
 	secret := []byte(strings.TrimSpace(cfg.Auth.JWTSecret))
 	if len(secret) == 0 {
-		secret = []byte(generateEphemeralSecret())
+		return nil, errors.New("auth jwt secret is required")
 	}
 
 	expiresIn := cfg.Auth.JWTExpiresIn
@@ -64,18 +77,18 @@ func NewAuthService(cfg config.Config, dataMode string) *AuthService {
 		secret:    secret,
 		expiresIn: expiresIn,
 		credentials: map[string]credential{
-			strings.TrimSpace(cfg.Auth.DoctorAccount): {
-				password: cfg.Auth.DoctorPassword,
+			doctorAccount: {
+				password: doctorPassword,
 				role:     "doctor",
-				name:     strings.TrimSpace(cfg.Auth.DoctorAccount),
+				name:     doctorAccount,
 			},
-			strings.TrimSpace(cfg.Auth.AdminAccount): {
-				password: cfg.Auth.AdminPassword,
+			adminAccount: {
+				password: adminPassword,
 				role:     "admin",
-				name:     strings.TrimSpace(cfg.Auth.AdminAccount),
+				name:     adminAccount,
 			},
 		},
-	}
+	}, nil
 }
 
 func (s *AuthService) Login(input LoginInput) (LoginResult, error) {
@@ -131,12 +144,4 @@ func (s *AuthService) VerifyToken(token string) (TokenClaims, error) {
 	}
 
 	return *claims, nil
-}
-
-func generateEphemeralSecret() string {
-	buf := make([]byte, 32)
-	if _, err := rand.Read(buf); err != nil {
-		return "fallback-ephemeral-secret"
-	}
-	return hex.EncodeToString(buf)
 }

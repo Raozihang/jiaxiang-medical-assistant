@@ -13,16 +13,19 @@ func TestAuthServiceLoginAndVerifyToken(t *testing.T) {
 			JWTSecret:      "test-secret",
 			JWTExpiresIn:   3600,
 			DoctorAccount:  "doctor",
-			DoctorPassword: "dev",
+			DoctorPassword: "doctor-password-123",
 			AdminAccount:   "admin",
-			AdminPassword:  "admin123",
+			AdminPassword:  "admin-password-123",
 		},
 	}
 
-	svc := NewAuthService(cfg, "mock")
+	svc, err := NewAuthService(cfg, "mock")
+	if err != nil {
+		t.Fatalf("new auth service failed: %v", err)
+	}
 	result, err := svc.Login(LoginInput{
 		Account:  "doctor",
-		Password: "dev",
+		Password: "doctor-password-123",
 	})
 	if err != nil {
 		t.Fatalf("login failed: %v", err)
@@ -49,16 +52,38 @@ func TestAuthServiceRejectsInvalidCredentials(t *testing.T) {
 		Auth: config.AuthConfig{
 			JWTSecret:      "test-secret",
 			DoctorAccount:  "doctor",
-			DoctorPassword: "dev",
+			DoctorPassword: "doctor-password-123",
+			AdminAccount:   "admin",
+			AdminPassword:  "admin-password-123",
 		},
 	}
 
-	svc := NewAuthService(cfg, "mock")
-	_, err := svc.Login(LoginInput{
+	svc, err := NewAuthService(cfg, "mock")
+	if err != nil {
+		t.Fatalf("new auth service failed: %v", err)
+	}
+	_, err = svc.Login(LoginInput{
 		Account:  "doctor",
 		Password: "wrong-password",
 	})
 	if !errors.Is(err, ErrInvalidCredentials) {
 		t.Fatalf("expected ErrInvalidCredentials, got %v", err)
+	}
+}
+
+func TestAuthServiceRejectsCollidingAccounts(t *testing.T) {
+	cfg := config.Config{
+		Auth: config.AuthConfig{
+			JWTSecret:      "test-secret",
+			DoctorAccount:  "same-account",
+			DoctorPassword: "doctor-password-123",
+			AdminAccount:   "same-account",
+			AdminPassword:  "admin-password-123",
+		},
+	}
+
+	_, err := NewAuthService(cfg, "mock")
+	if err == nil {
+		t.Fatalf("expected account collision error")
 	}
 }

@@ -18,6 +18,6 @@ go run ./cmd/server
 复制 `.env.example` 到 `.env` 后按需修改数据库连接信息。
 
 ## 登录（开发环境）
-- 默认账号：`doctor` / `dev`
-- 默认管理员：`admin` / `admin123`
-- `AUTH_JWT_SECRET` 建议设置为足够随机且长度充足的密钥。
+- 账号默认值：`doctor`、`admin`
+- 必须修改：`AUTH_JWT_SECRET`、`AUTH_DOCTOR_PASSWORD`、`AUTH_ADMIN_PASSWORD`
+- 若仍使用占位符或弱口令，服务会在启动时直接失败。

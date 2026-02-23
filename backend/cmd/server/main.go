@@ -11,7 +11,10 @@ import (
 func main() {
 	cfg := config.Load()
 
-	engine, cleanup := bootstrap.NewServer(cfg)
+	engine, cleanup, err := bootstrap.NewServer(cfg)
+	if err != nil {
+		log.Fatalf("failed to initialize server: %v", err)
+	}
 	defer cleanup()
 
 	addr := fmt.Sprintf(":%d", cfg.AppPort)

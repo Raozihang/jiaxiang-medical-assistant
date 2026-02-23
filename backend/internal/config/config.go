@@ -1,9 +1,11 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
@@ -63,9 +65,9 @@ func Load() Config {
 			JWTSecret:      getEnv("AUTH_JWT_SECRET", ""),
 			JWTExpiresIn:   getEnvAsInt("AUTH_JWT_EXPIRES_IN", 7200),
 			DoctorAccount:  getEnv("AUTH_DOCTOR_ACCOUNT", "doctor"),
-			DoctorPassword: getEnv("AUTH_DOCTOR_PASSWORD", "dev"),
+			DoctorPassword: getEnv("AUTH_DOCTOR_PASSWORD", ""),
 			AdminAccount:   getEnv("AUTH_ADMIN_ACCOUNT", "admin"),
-			AdminPassword:  getEnv("AUTH_ADMIN_PASSWORD", "admin123"),
+			AdminPassword:  getEnv("AUTH_ADMIN_PASSWORD", ""),
 		},
 		DB: DBConfig{
 			Host:     getEnv("DB_HOST", ""),
@@ -75,6 +77,52 @@ func Load() Config {
 			Name:     getEnv("DB_NAME", ""),
 			SSLMode:  getEnv("DB_SSLMODE", "disable"),
 		},
+	}
+}
+
+func (c Config) Validate() error {
+	return c.Auth.Validate()
+}
+
+func (c AuthConfig) Validate() error {
+	jwtSecret := strings.TrimSpace(c.JWTSecret)
+	if jwtSecret == "" {
+		return errors.New("AUTH_JWT_SECRET is required")
+	}
+	if jwtSecret == "replace-with-a-long-random-secret" {
+		return errors.New("AUTH_JWT_SECRET must be replaced from placeholder")
+	}
+
+	doctorAccount := strings.TrimSpace(c.DoctorAccount)
+	adminAccount := strings.TrimSpace(c.AdminAccount)
+	if doctorAccount == "" || adminAccount == "" {
+		return errors.New("AUTH_DOCTOR_ACCOUNT and AUTH_ADMIN_ACCOUNT are required")
+	}
+	if doctorAccount == adminAccount {
+		return errors.New("AUTH_DOCTOR_ACCOUNT and AUTH_ADMIN_ACCOUNT must be different")
+	}
+
+	if isUnsafePassword(c.DoctorPassword, "replace-with-doctor-password") {
+		return errors.New("AUTH_DOCTOR_PASSWORD must be changed to a non-default value")
+	}
+	if isUnsafePassword(c.AdminPassword, "replace-with-admin-password") {
+		return errors.New("AUTH_ADMIN_PASSWORD must be changed to a non-default value")
+	}
+
+	return nil
+}
+
+func isUnsafePassword(password string, placeholder string) bool {
+	normalized := strings.TrimSpace(password)
+	if normalized == "" {
+		return true
+	}
+
+	switch normalized {
+	case placeholder, "dev", "admin123", "changeme", "change-me", "password":
+		return true
+	default:
+		return false
 	}
 }
 
