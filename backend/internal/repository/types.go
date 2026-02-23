@@ -1,0 +1,96 @@
+package repository
+
+import (
+	"context"
+	"errors"
+	"time"
+)
+
+var (
+	ErrNotFound          = errors.New("resource not found")
+	ErrInsufficientStock = errors.New("insufficient stock")
+)
+
+type PageParams struct {
+	Page     int
+	PageSize int
+}
+
+type PageResult[T any] struct {
+	Items    []T
+	Page     int
+	PageSize int
+	Total    int64
+}
+
+type Visit struct {
+	ID           string    `json:"id"`
+	StudentID    string    `json:"student_id"`
+	StudentName  string    `json:"student_name"`
+	ClassName    string    `json:"class_name"`
+	Symptoms     []string  `json:"symptoms"`
+	Description  string    `json:"description"`
+	Diagnosis    string    `json:"diagnosis"`
+	Prescription []string  `json:"prescription"`
+	Destination  string    `json:"destination"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
+type VisitListParams struct {
+	PageParams
+	StudentID string
+}
+
+type CreateVisitInput struct {
+	StudentID   string
+	Symptoms    []string
+	Description string
+}
+
+type UpdateVisitInput struct {
+	Diagnosis    *string
+	Prescription *[]string
+	Destination  *string
+}
+
+type VisitRepository interface {
+	List(ctx context.Context, params VisitListParams) (PageResult[Visit], error)
+	Create(ctx context.Context, input CreateVisitInput) (Visit, error)
+	GetByID(ctx context.Context, id string) (Visit, error)
+	Update(ctx context.Context, id string, input UpdateVisitInput) (Visit, error)
+	CountToday(ctx context.Context, now time.Time) (int64, error)
+	CountObservationToday(ctx context.Context, now time.Time) (int64, error)
+	EnsureSeedData(ctx context.Context) error
+}
+
+type Medicine struct {
+	ID             string    `json:"id"`
+	Name           string    `json:"name"`
+	Specification  string    `json:"specification"`
+	Stock          int       `json:"stock"`
+	SafeStock      int       `json:"safe_stock"`
+	ExpiryDate     time.Time `json:"expiry_date"`
+	Warnings       []string  `json:"warnings"`
+	IsLowStock     bool      `json:"is_low_stock"`
+	IsExpiringSoon bool      `json:"is_expiring_soon"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
+}
+
+type MedicineListParams struct {
+	PageParams
+}
+
+type StockChangeInput struct {
+	MedicineID string
+	Quantity   int
+}
+
+type MedicineRepository interface {
+	List(ctx context.Context, params MedicineListParams) (PageResult[Medicine], error)
+	Inbound(ctx context.Context, input StockChangeInput) (Medicine, error)
+	Outbound(ctx context.Context, input StockChangeInput) (Medicine, error)
+	CountWarnings(ctx context.Context, now time.Time) (int64, error)
+	EnsureSeedData(ctx context.Context) error
+}
