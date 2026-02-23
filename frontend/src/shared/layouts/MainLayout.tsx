@@ -11,6 +11,10 @@ const menuItems: MenuProps["items"] = [
   { key: "/doctor/visits", label: "Visit Queue" },
   { key: "/doctor/medicines", label: "Medicine Inventory" },
   { key: "/admin/dashboard", label: "Dashboard" },
+  { key: "/admin/imports", label: "Data Imports" },
+  { key: "/admin/reports", label: "Reports" },
+  { key: "/admin/notifications", label: "Notifications" },
+  { key: "/admin/safety", label: "Safety Alerts" },
 ];
 
 function getSelectedKey(pathname: string) {
@@ -50,3 +54,4 @@ export function MainLayout() {
     </Layout>
   );
 }
+

@@ -111,6 +111,8 @@ func (h *VisitHandler) Update(c *gin.Context) {
 
 func handleDomainError(c *gin.Context, err error) {
 	switch {
+	case errors.Is(err, service.ErrInvalidInput):
+		response.Fail(c, http.StatusBadRequest, 1001, "invalid input")
 	case errors.Is(err, repository.ErrNotFound):
 		response.Fail(c, http.StatusNotFound, 2001, "resource not found")
 	case errors.Is(err, repository.ErrInsufficientStock):

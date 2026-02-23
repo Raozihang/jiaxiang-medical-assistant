@@ -16,10 +16,17 @@ import (
 func registerRoutes(engine *gin.Engine, cfg config.Config, db *gorm.DB) error {
 	dataMode := cfg.ResolveDataMode(db != nil)
 	visitRepo, medicineRepo := buildRepositories(dataMode, db)
+	importTaskRepo := repository.NewMemoryImportTaskRepository()
+	notificationLogRepo := repository.NewMemoryNotificationLogRepository()
+	safetyAlertStateRepo := repository.NewMemorySafetyAlertStateRepository()
 
 	visitService := service.NewVisitService(visitRepo)
 	medicineService := service.NewMedicineService(medicineRepo)
 	reportService := service.NewReportService(visitRepo, medicineRepo)
+	aiService := service.NewAIService()
+	importService := service.NewImportService(visitRepo, importTaskRepo)
+	notificationService := service.NewNotificationService(notificationLogRepo)
+	safetyService := service.NewSafetyService(visitRepo, safetyAlertStateRepo)
 	authService, err := service.NewAuthService(cfg, dataMode)
 	if err != nil {
 		return err
@@ -38,6 +45,10 @@ func registerRoutes(engine *gin.Engine, cfg config.Config, db *gorm.DB) error {
 	visitHandler := handler.NewVisitHandler(visitService)
 	medicineHandler := handler.NewMedicineHandler(medicineService)
 	reportHandler := handler.NewReportHandler(reportService)
+	aiHandler := handler.NewAIHandler(aiService)
+	importHandler := handler.NewImportHandler(importService)
+	notificationHandler := handler.NewNotificationHandler(notificationService)
+	safetyHandler := handler.NewSafetyHandler(safetyService)
 
 	api := engine.Group("/api/v1")
 	{
@@ -58,6 +69,24 @@ func registerRoutes(engine *gin.Engine, cfg config.Config, db *gorm.DB) error {
 			protected.POST("/medicines/outbound", medicineHandler.Outbound)
 
 			protected.GET("/reports/overview", reportHandler.Overview)
+			protected.GET("/reports/daily", reportHandler.Daily)
+			protected.GET("/reports/weekly", reportHandler.Weekly)
+			protected.GET("/reports/monthly", reportHandler.Monthly)
+
+			protected.POST("/ai/analyze", aiHandler.Analyze)
+			protected.POST("/ai/triage", aiHandler.Triage)
+			protected.POST("/ai/recommend", aiHandler.Recommend)
+			protected.POST("/ai/interaction-check", aiHandler.InteractionCheck)
+
+			protected.POST("/import/visits", importHandler.ImportVisits)
+			protected.GET("/import/tasks", importHandler.Tasks)
+			protected.GET("/import/tasks/:id", importHandler.TaskDetail)
+
+			protected.POST("/notifications/send", notificationHandler.Send)
+			protected.GET("/notifications/logs", notificationHandler.Logs)
+
+			protected.GET("/safety/alerts", safetyHandler.Alerts)
+			protected.PATCH("/safety/alerts/:id", safetyHandler.UpdateAlert)
 		}
 	}
 

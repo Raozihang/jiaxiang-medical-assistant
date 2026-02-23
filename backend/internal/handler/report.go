@@ -23,3 +23,33 @@ func (h *ReportHandler) Overview(c *gin.Context) {
 
 	response.Success(c, overview)
 }
+
+func (h *ReportHandler) Daily(c *gin.Context) {
+	report, err := h.reportService.Daily(c.Request.Context())
+	if err != nil {
+		handleDomainError(c, err)
+		return
+	}
+
+	response.Success(c, report)
+}
+
+func (h *ReportHandler) Weekly(c *gin.Context) {
+	report, err := h.reportService.Weekly(c.Request.Context())
+	if err != nil {
+		handleDomainError(c, err)
+		return
+	}
+
+	response.Success(c, report)
+}
+
+func (h *ReportHandler) Monthly(c *gin.Context) {
+	report, err := h.reportService.Monthly(c.Request.Context())
+	if err != nil {
+		handleDomainError(c, err)
+		return
+	}
+
+	response.Success(c, report)
+}

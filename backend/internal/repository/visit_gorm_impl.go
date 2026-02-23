@@ -102,6 +102,9 @@ func (r *GormVisitRepository) Create(ctx context.Context, input CreateVisitInput
 	}
 
 	now := time.Now().UTC()
+	if input.CreatedAt != nil {
+		now = input.CreatedAt.UTC()
+	}
 	row := model.Visit{
 		StudentID:   student.ID,
 		DoctorID:    uuid.New(),

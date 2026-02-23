@@ -46,6 +46,7 @@ type CreateVisitInput struct {
 	StudentID   string
 	Symptoms    []string
 	Description string
+	CreatedAt   *time.Time
 }
 
 type UpdateVisitInput struct {

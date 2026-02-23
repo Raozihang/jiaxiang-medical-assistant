@@ -74,6 +74,9 @@ func (r *MockVisitRepository) Create(_ context.Context, input CreateVisitInput) 
 	defer r.mu.Unlock()
 
 	now := time.Now().UTC()
+	if input.CreatedAt != nil {
+		now = input.CreatedAt.UTC()
+	}
 	id := uuid.NewString()
 	visit := Visit{
 		ID:          id,

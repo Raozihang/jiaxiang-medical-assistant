@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/jiaxiang-medical-assistant/backend/internal/repository"
 )
@@ -20,6 +21,7 @@ type CreateVisitInput struct {
 	StudentID   string
 	Symptoms    []string
 	Description string
+	CreatedAt   *time.Time
 }
 
 type UpdateVisitInput struct {
@@ -57,6 +59,7 @@ func (s *VisitService) Create(ctx context.Context, input CreateVisitInput) (repo
 		StudentID:   strings.TrimSpace(input.StudentID),
 		Symptoms:    symptoms,
 		Description: strings.TrimSpace(input.Description),
+		CreatedAt:   input.CreatedAt,
 	})
 }
 
