@@ -20,7 +20,7 @@ func registerRoutes(engine *gin.Engine, cfg config.Config, db *gorm.DB) {
 	visitService := service.NewVisitService(visitRepo)
 	medicineService := service.NewMedicineService(medicineRepo)
 	reportService := service.NewReportService(visitRepo, medicineRepo)
-	authService := service.NewAuthService(dataMode)
+	authService := service.NewAuthService(cfg, dataMode)
 
 	seedContext := context.Background()
 	if err := visitService.EnsureSeedData(seedContext); err != nil {
@@ -44,7 +44,7 @@ func registerRoutes(engine *gin.Engine, cfg config.Config, db *gorm.DB) {
 		api.POST("/visits", visitHandler.Create)
 
 		protected := api.Group("")
-		protected.Use(middleware.AuthRequired())
+		protected.Use(middleware.AuthRequired(authService))
 		{
 			protected.GET("/visits", visitHandler.List)
 			protected.GET("/visits/:id", visitHandler.Detail)

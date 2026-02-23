@@ -2,7 +2,6 @@ import axios from "axios";
 import { env } from "@/shared/config/env";
 
 const TOKEN_KEY = "jx_medical_token";
-const FALLBACK_TOKEN = "mock-token-for-dev";
 
 export function getStoredToken() {
   return window.localStorage.getItem(TOKEN_KEY);
@@ -18,8 +17,12 @@ export const http = axios.create({
 });
 
 http.interceptors.request.use((config) => {
-  const token = getStoredToken() ?? FALLBACK_TOKEN;
-  config.headers.Authorization = `Bearer ${token}`;
+  const token = getStoredToken();
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  } else {
+    delete config.headers.Authorization;
+  }
   return config;
 });
 

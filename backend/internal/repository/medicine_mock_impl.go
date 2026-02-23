@@ -60,9 +60,10 @@ func (r *MockMedicineRepository) List(_ context.Context, params MedicineListPara
 	defer r.mu.RUnlock()
 
 	items := make([]Medicine, 0, len(r.medicines))
+	threshold := time.Now().UTC().AddDate(0, 0, 30)
 	for _, medicine := range r.medicines {
 		medicine.IsLowStock = medicine.Stock < medicine.SafeStock
-		medicine.IsExpiringSoon = medicine.ExpiryDate.Before(time.Now().UTC().AddDate(0, 0, 30))
+		medicine.IsExpiringSoon = !medicine.ExpiryDate.After(threshold)
 		items = append(items, medicine)
 	}
 
@@ -106,9 +107,11 @@ func (r *MockMedicineRepository) changeStock(input StockChangeInput, inbound boo
 		medicine.Stock -= input.Quantity
 	}
 
-	medicine.UpdatedAt = time.Now().UTC()
+	now := time.Now().UTC()
+	threshold := now.AddDate(0, 0, 30)
+	medicine.UpdatedAt = now
 	medicine.IsLowStock = medicine.Stock < medicine.SafeStock
-	medicine.IsExpiringSoon = medicine.ExpiryDate.Before(time.Now().UTC().AddDate(0, 0, 30))
+	medicine.IsExpiringSoon = !medicine.ExpiryDate.After(threshold)
 	r.medicines[input.MedicineID] = medicine
 
 	return medicine, nil

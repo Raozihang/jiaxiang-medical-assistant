@@ -13,7 +13,17 @@ type Config struct {
 	AppEnv   string
 	AppPort  int
 	DataMode string
+	Auth     AuthConfig
 	DB       DBConfig
+}
+
+type AuthConfig struct {
+	JWTSecret      string
+	JWTExpiresIn   int
+	DoctorAccount  string
+	DoctorPassword string
+	AdminAccount   string
+	AdminPassword  string
 }
 
 type DBConfig struct {
@@ -49,6 +59,14 @@ func Load() Config {
 		AppEnv:   getEnv("APP_ENV", "development"),
 		AppPort:  getEnvAsInt("APP_PORT", 8080),
 		DataMode: getEnv("APP_DATA_MODE", "db"),
+		Auth: AuthConfig{
+			JWTSecret:      getEnv("AUTH_JWT_SECRET", ""),
+			JWTExpiresIn:   getEnvAsInt("AUTH_JWT_EXPIRES_IN", 7200),
+			DoctorAccount:  getEnv("AUTH_DOCTOR_ACCOUNT", "doctor"),
+			DoctorPassword: getEnv("AUTH_DOCTOR_PASSWORD", "dev"),
+			AdminAccount:   getEnv("AUTH_ADMIN_ACCOUNT", "admin"),
+			AdminPassword:  getEnv("AUTH_ADMIN_PASSWORD", "admin123"),
+		},
 		DB: DBConfig{
 			Host:     getEnv("DB_HOST", ""),
 			Port:     getEnvAsInt("DB_PORT", 5432),

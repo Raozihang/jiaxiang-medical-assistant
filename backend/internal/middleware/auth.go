@@ -6,10 +6,16 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jiaxiang-medical-assistant/backend/internal/service"
 )
 
-func AuthRequired() gin.HandlerFunc {
+func AuthRequired(authService *service.AuthService) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if authService == nil {
+			writeAuthError(c)
+			return
+		}
+
 		authHeader := strings.TrimSpace(c.GetHeader("Authorization"))
 		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
 			writeAuthError(c)
@@ -22,6 +28,15 @@ func AuthRequired() gin.HandlerFunc {
 			return
 		}
 
+		claims, err := authService.VerifyToken(token)
+		if err != nil {
+			writeAuthError(c)
+			return
+		}
+
+		c.Set("auth_subject", claims.Subject)
+		c.Set("auth_role", claims.Role)
+		c.Set("auth_name", claims.Name)
 		c.Next()
 	}
 }

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -28,10 +29,18 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	result := h.authService.Login(service.LoginInput{
+	result, err := h.authService.Login(service.LoginInput{
 		Account:  req.Account,
 		Password: req.Password,
 	})
+	if errors.Is(err, service.ErrInvalidCredentials) {
+		response.Fail(c, http.StatusUnauthorized, 1002, "invalid credentials")
+		return
+	}
+	if err != nil {
+		response.Fail(c, http.StatusInternalServerError, 5000, "internal error")
+		return
+	}
 
 	response.Success(c, result)
 }
