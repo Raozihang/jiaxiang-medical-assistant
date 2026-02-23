@@ -16,9 +16,7 @@ import (
 func registerRoutes(engine *gin.Engine, cfg config.Config, db *gorm.DB) error {
 	dataMode := cfg.ResolveDataMode(db != nil)
 	visitRepo, medicineRepo := buildRepositories(dataMode, db)
-	importTaskRepo := repository.NewMemoryImportTaskRepository()
-	notificationLogRepo := repository.NewMemoryNotificationLogRepository()
-	safetyAlertStateRepo := repository.NewMemorySafetyAlertStateRepository()
+	importTaskRepo, notificationLogRepo, safetyAlertStateRepo := buildStateRepositories(dataMode, db)
 
 	visitService := service.NewVisitService(visitRepo)
 	medicineService := service.NewMedicineService(medicineRepo)
@@ -99,4 +97,20 @@ func buildRepositories(dataMode string, db *gorm.DB) (repository.VisitRepository
 	}
 
 	return repository.NewMockVisitRepository(), repository.NewMockMedicineRepository()
+}
+
+func buildStateRepositories(dataMode string, db *gorm.DB) (
+	repository.ImportTaskRepository,
+	repository.NotificationLogRepository,
+	repository.SafetyAlertStateRepository,
+) {
+	if dataMode == "db" && db != nil {
+		return repository.NewGormImportTaskRepository(db),
+			repository.NewGormNotificationLogRepository(db),
+			repository.NewGormSafetyAlertStateRepository(db)
+	}
+
+	return repository.NewMemoryImportTaskRepository(),
+		repository.NewMemoryNotificationLogRepository(),
+		repository.NewMemorySafetyAlertStateRepository()
 }

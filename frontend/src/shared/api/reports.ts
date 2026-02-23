@@ -74,7 +74,13 @@ function toTrendItem(item: unknown, index = 0): ReportTrend {
     urgent: toNumber(pickFirst(record, ["urgent", "urgent_visits", "urgent_count"])) ?? 0,
     observation:
       toNumber(
-        pickFirst(record, ["observation", "observation_students", "observation_count"]),
+        pickFirst(record, [
+          "observation",
+          "observation_students",
+          "observation_visits",
+          "observationVisits",
+          "observation_count",
+        ]),
       ) ?? 0,
   };
 }
@@ -85,7 +91,13 @@ function parseSummary(record: Record<string, unknown> | null): ReportSummary {
     urgentVisits: toNumber(pickFirst(record, ["urgent_visits", "urgentVisits", "urgent_count"])) ?? 0,
     observationStudents:
       toNumber(
-        pickFirst(record, ["observation_students", "observationStudents", "observation_count"]),
+        pickFirst(record, [
+          "observation_students",
+          "observation_visits",
+          "observationStudents",
+          "observationVisits",
+          "observation_count",
+        ]),
       ) ?? 0,
     hospitalReferrals:
       toNumber(
@@ -128,7 +140,13 @@ function parseOverview(value: unknown): OverviewReport {
       toNumber(pickFirst(record, ["today_visits", "todayVisits", "visit_count", "total_visits"])) ?? 0,
     observation_students:
       toNumber(
-        pickFirst(record, ["observation_students", "observationStudents", "observation_count"]),
+        pickFirst(record, [
+          "observation_students",
+          "observation_visits",
+          "observationStudents",
+          "observationVisits",
+          "observation_count",
+        ]),
       ) ?? 0,
     stock_warnings: toNumber(pickFirst(record, ["stock_warnings", "stockWarnings"])) ?? 0,
   };

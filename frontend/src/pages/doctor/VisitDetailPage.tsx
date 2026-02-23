@@ -57,22 +57,25 @@ function parsePrescriptionInput(value: string) {
     .filter((item) => item.length > 0);
 }
 
-function normalizeDestination(value: string) {
-  const normalized = value.trim().toLowerCase();
+function normalizeDestination(value: string | null | undefined) {
+  const normalized = (value ?? "").trim().toLowerCase();
+  if (!normalized) {
+    return "observation";
+  }
   if (["urgent", "critical", "high"].includes(normalized)) {
     return "urgent";
   }
   if (["hospital", "referral", "transfer"].includes(normalized)) {
     return "hospital";
   }
-  if (["return_class", "returnclass", "class", "back"].includes(normalized)) {
+  if (["return_class", "returnclass", "class", "classroom", "back"].includes(normalized)) {
     return "return_class";
   }
   return "observation";
 }
 
 function destinationLabel(value: string) {
-  switch (value) {
+  switch (normalizeDestination(value)) {
     case "urgent":
       return "Urgent";
     case "hospital":
@@ -85,13 +88,14 @@ function destinationLabel(value: string) {
 }
 
 function destinationTagColor(value: string) {
-  if (value === "urgent") {
+  const normalized = normalizeDestination(value);
+  if (normalized === "urgent") {
     return "red";
   }
-  if (value === "hospital") {
+  if (normalized === "hospital") {
     return "orange";
   }
-  if (value === "return_class") {
+  if (normalized === "return_class") {
     return "green";
   }
   return "blue";
@@ -135,7 +139,7 @@ export function VisitDetailPage() {
       form.setFieldsValue({
         diagnosis: data.diagnosis ?? "",
         prescription: data.prescription.join(", "),
-        destination: data.destination || "observation",
+        destination: normalizeDestination(data.destination),
       });
       setAnalyzeResult(null);
       setTriageResult(null);
@@ -200,11 +204,15 @@ export function VisitDetailPage() {
     setSingleAILoading("recommend", true);
     try {
       const diagnosis = form.getFieldValue("diagnosis");
+      const destination = normalizeDestination(
+        triageResult?.destination ?? form.getFieldValue("destination") ?? visit.destination,
+      );
       const result = await recommendMedicines({
         visit_id: visit.id,
         symptoms: visit.symptoms,
         diagnosis,
         triage_level: triageResult?.level,
+        destination,
       });
       setRecommendResult(result);
       messageApi.success("药品推荐完成");

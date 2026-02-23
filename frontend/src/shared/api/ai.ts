@@ -53,6 +53,7 @@ export type RecommendPayload = {
   symptoms: string[];
   diagnosis?: string;
   triage_level?: string;
+  destination?: string;
   allergies?: string[];
 };
 
