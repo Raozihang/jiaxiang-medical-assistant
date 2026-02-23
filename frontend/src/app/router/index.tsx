@@ -8,9 +8,15 @@ import { LoginPage } from "@/pages/auth/LoginPage";
 import { MedicinesPage } from "@/pages/doctor/MedicinesPage";
 import { VisitDetailPage } from "@/pages/doctor/VisitDetailPage";
 import { VisitsPage } from "@/pages/doctor/VisitsPage";
+import { ForbiddenPage } from "@/pages/ForbiddenPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 import { CheckInPage } from "@/pages/student/CheckInPage";
-import { getStoredUser, hasValidSession, resolveHomePath } from "@/shared/auth/session";
+import {
+  getStoredUser,
+  hasValidSession,
+  resolveHomePath,
+  type UserRole,
+} from "@/shared/auth/session";
 import { MainLayout } from "@/shared/layouts/MainLayout";
 
 function HomeRedirect() {
@@ -26,6 +32,17 @@ function RequireAuth() {
     return <Navigate to="/login" replace />;
   }
 
+  return <Outlet />;
+}
+
+function RequireRole({ role }: { role: UserRole }) {
+  const user = getStoredUser();
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+  if (user.role !== role) {
+    return <Navigate to="/forbidden" replace />;
+  }
   return <Outlet />;
 }
 
@@ -48,17 +65,28 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <HomeRedirect /> },
       { path: "student/checkin", element: <CheckInPage /> },
+      { path: "forbidden", element: <ForbiddenPage /> },
       {
         element: <RequireAuth />,
         children: [
-          { path: "doctor/visits", element: <VisitsPage /> },
-          { path: "doctor/visit/:id", element: <VisitDetailPage /> },
-          { path: "doctor/medicines", element: <MedicinesPage /> },
-          { path: "admin/dashboard", element: <DashboardPage /> },
-          { path: "admin/imports", element: <ImportsPage /> },
-          { path: "admin/reports", element: <ReportsPage /> },
-          { path: "admin/notifications", element: <NotificationsPage /> },
-          { path: "admin/safety", element: <SafetyPage /> },
+          {
+            element: <RequireRole role="doctor" />,
+            children: [
+              { path: "doctor/visits", element: <VisitsPage /> },
+              { path: "doctor/visit/:id", element: <VisitDetailPage /> },
+              { path: "doctor/medicines", element: <MedicinesPage /> },
+            ],
+          },
+          {
+            element: <RequireRole role="admin" />,
+            children: [
+              { path: "admin/dashboard", element: <DashboardPage /> },
+              { path: "admin/imports", element: <ImportsPage /> },
+              { path: "admin/reports", element: <ReportsPage /> },
+              { path: "admin/notifications", element: <NotificationsPage /> },
+              { path: "admin/safety", element: <SafetyPage /> },
+            ],
+          },
         ],
       },
     ],
