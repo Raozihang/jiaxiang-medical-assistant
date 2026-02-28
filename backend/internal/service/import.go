@@ -52,7 +52,7 @@ func (s *ImportService) SubmitVisits(ctx context.Context, items []VisitImportIte
 			task.Failed++
 			task.Errors = append(task.Errors, repository.ImportTaskError{
 				Index:   idx,
-				Message: "student_id is required",
+				Message: "学号不能为空",
 			})
 			continue
 		}
@@ -67,7 +67,7 @@ func (s *ImportService) SubmitVisits(ctx context.Context, items []VisitImportIte
 			task.Failed++
 			task.Errors = append(task.Errors, repository.ImportTaskError{
 				Index:   idx,
-				Message: fmt.Sprintf("create visit failed: %v", createErr),
+				Message: fmt.Sprintf("创建就诊记录失败: %v", createErr),
 			})
 			continue
 		}
@@ -89,7 +89,7 @@ func (s *ImportService) SubmitVisits(ctx context.Context, items []VisitImportIte
 				task.Failed++
 				task.Errors = append(task.Errors, repository.ImportTaskError{
 					Index:   idx,
-					Message: fmt.Sprintf("update visit failed: %v", updateErr),
+					Message: fmt.Sprintf("更新就诊记录失败: %v", updateErr),
 				})
 				continue
 			}

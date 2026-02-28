@@ -14,10 +14,13 @@ import {
 import type { ColumnsType, TablePaginationConfig } from "antd/es/table";
 import { useCallback, useEffect, useState } from "react";
 import {
+  dispatchScenarioNotification,
   listNotificationLogs,
   sendNotification,
   type NotificationLog,
   type NotificationChannel,
+  type NotificationScenario,
+  type DispatchScenarioNotificationPayload,
   type SendNotificationPayload,
 } from "@/shared/api/notifications";
 import { getErrorMessage } from "@/shared/api/helpers";
@@ -36,6 +39,16 @@ type NotificationForm = {
   channel: NotificationChannel;
   receiver: string;
   message: string;
+};
+
+type ScenarioNotificationForm = {
+  scenario: NotificationScenario;
+  channel: NotificationChannel;
+  receiver: string;
+  student_name?: string;
+  destination?: string;
+  follow_up_at?: string;
+  note?: string;
 };
 
 function formatDate(value: string) {
@@ -76,10 +89,12 @@ function statusColor(status: string) {
 
 export function NotificationsPage() {
   const [messageApi, contextHolder] = message.useMessage();
-  const [form] = Form.useForm<NotificationForm>();
+  const [manualForm] = Form.useForm<NotificationForm>();
+  const [scenarioForm] = Form.useForm<ScenarioNotificationForm>();
   const [rows, setRows] = useState<NotificationLogRow[]>([]);
   const [loading, setLoading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const [manualSubmitting, setManualSubmitting] = useState(false);
+  const [scenarioSubmitting, setScenarioSubmitting] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [total, setTotal] = useState(0);
@@ -106,6 +121,22 @@ export function NotificationsPage() {
     void fetchLogs(page, pageSize);
   }, [fetchLogs, page, pageSize]);
 
+  const notifyAndRefresh = async (
+    action: () => Promise<unknown>,
+    successText: string,
+    failureText: string,
+    onSuccess?: () => void,
+  ) => {
+    try {
+      await action();
+      messageApi.success(successText);
+      onSuccess?.();
+      await fetchLogs(1, pageSize);
+    } catch (error) {
+      messageApi.error(getErrorMessage(error, failureText));
+    }
+  };
+
   const handleSend = async (values: NotificationForm) => {
     const payload: SendNotificationPayload = {
       channel: values.channel,
@@ -113,16 +144,40 @@ export function NotificationsPage() {
       message: values.message,
     };
 
-    setSubmitting(true);
+    setManualSubmitting(true);
     try {
-      await sendNotification(payload);
-      messageApi.success("消息发送成功");
-      form.resetFields();
-      await fetchLogs(1, pageSize);
-    } catch (error) {
-      messageApi.error(getErrorMessage(error, "消息发送失败"));
+      await notifyAndRefresh(
+        () => sendNotification(payload),
+        "消息发送成功",
+        "消息发送失败",
+        () => manualForm.resetFields(),
+      );
     } finally {
-      setSubmitting(false);
+      setManualSubmitting(false);
+    }
+  };
+
+  const handleScenarioDispatch = async (values: ScenarioNotificationForm) => {
+    const payload: DispatchScenarioNotificationPayload = {
+      scenario: values.scenario,
+      channel: values.channel,
+      receiver: values.receiver,
+      student_name: values.student_name?.trim() || undefined,
+      destination: values.destination?.trim() || undefined,
+      follow_up_at: values.follow_up_at?.trim() || undefined,
+      note: values.note?.trim() || undefined,
+    };
+
+    setScenarioSubmitting(true);
+    try {
+      await notifyAndRefresh(
+        () => dispatchScenarioNotification(payload),
+        "场景化推送发送成功",
+        "场景化推送发送失败",
+        () => scenarioForm.resetFields(),
+      );
+    } finally {
+      setScenarioSubmitting(false);
     }
   };
 
@@ -161,7 +216,7 @@ export function NotificationsPage() {
           </Button>
         }
       >
-        <Form layout="vertical" form={form} onFinish={(values) => void handleSend(values)}>
+        <Form layout="vertical" form={manualForm} onFinish={(values) => void handleSend(values)}>
           <Space align="start" wrap>
             <Form.Item
               label="发送通道"
@@ -194,8 +249,77 @@ export function NotificationsPage() {
             </Form.Item>
 
             <Form.Item label=" " style={{ marginBottom: 0 }}>
-              <Button htmlType="submit" type="primary" loading={submitting}>
+              <Button htmlType="submit" type="primary" loading={manualSubmitting}>
                 发送
+              </Button>
+            </Form.Item>
+          </Space>
+        </Form>
+      </Card>
+
+      <Card title="场景化推送">
+        <Form
+          layout="vertical"
+          form={scenarioForm}
+          onFinish={(values) => void handleScenarioDispatch(values)}
+        >
+          <Space align="start" wrap>
+            <Form.Item
+              label="推送场景"
+              name="scenario"
+              rules={[{ required: true, message: "请选择推送场景" }]}
+            >
+              <Select
+                style={{ width: 220 }}
+                options={[
+                  { value: "visit_completed", label: "visit_completed（到访完成）" },
+                  { value: "observation_notice", label: "observation_notice（观察通知）" },
+                  { value: "follow_up_reminder", label: "follow_up_reminder（复诊提醒）" },
+                ]}
+              />
+            </Form.Item>
+
+            <Form.Item
+              label="发送通道"
+              name="channel"
+              rules={[{ required: true, message: "请选择发送通道" }]}
+            >
+              <Select
+                style={{ width: 160 }}
+                options={[
+                  { value: "wechat", label: "WeChat" },
+                  { value: "dingtalk", label: "DingTalk" },
+                ]}
+              />
+            </Form.Item>
+
+            <Form.Item
+              label="接收人"
+              name="receiver"
+              rules={[{ required: true, message: "请输入接收人标识" }]}
+            >
+              <Input style={{ width: 220 }} placeholder="如：parent_group_1" />
+            </Form.Item>
+
+            <Form.Item label="学生姓名" name="student_name">
+              <Input style={{ width: 180 }} placeholder="可选" />
+            </Form.Item>
+
+            <Form.Item label="目的地" name="destination">
+              <Input style={{ width: 180 }} placeholder="可选" />
+            </Form.Item>
+
+            <Form.Item label="复诊时间" name="follow_up_at">
+              <Input style={{ width: 220 }} placeholder="可选，如 2026-02-24 09:30" />
+            </Form.Item>
+
+            <Form.Item label="备注" name="note">
+              <Input.TextArea rows={2} style={{ width: 260 }} placeholder="可选" />
+            </Form.Item>
+
+            <Form.Item label=" " style={{ marginBottom: 0 }}>
+              <Button htmlType="submit" type="primary" loading={scenarioSubmitting}>
+                发送场景化推送
               </Button>
             </Form.Item>
           </Space>

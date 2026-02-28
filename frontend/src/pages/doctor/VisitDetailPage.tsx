@@ -1,4 +1,11 @@
 import {
+  BulbOutlined,
+  MedicineBoxOutlined,
+  SafetyOutlined,
+  SearchOutlined,
+  ThunderboltOutlined,
+} from "@ant-design/icons";
+import {
   Alert,
   Button,
   Card,
@@ -81,13 +88,13 @@ function normalizeDestination(value: string | null | undefined) {
 function destinationLabel(value: string) {
   switch (normalizeDestination(value)) {
     case "urgent":
-      return "Urgent";
+      return "紧急处理";
     case "hospital":
-      return "Hospital Referral";
+      return "转诊";
     case "return_class":
-      return "Return Class";
+      return "返回班级";
     default:
-      return "Observation";
+      return "留观";
   }
 }
 
@@ -159,7 +166,7 @@ export function VisitDetailPage() {
       setVisit(data);
       form.setFieldsValue({
         diagnosis: data.diagnosis ?? "",
-        prescription: data.prescription.join(", "),
+        prescription: (data.prescription ?? []).join(", "),
         destination: normalizeDestination(data.destination),
         follow_up_at: parseFollowUpAt(data.follow_up_at),
         follow_up_note: data.follow_up_note ?? "",
@@ -345,7 +352,7 @@ export function VisitDetailPage() {
                 {visit.student_name} / {visit.class_name}
               </Descriptions.Item>
               <Descriptions.Item label="症状" span={2}>
-                {visit.symptoms.join(", ") || "-"}
+                {(visit.symptoms ?? []).join(", ") || "-"}
               </Descriptions.Item>
               <Descriptions.Item label="主诉" span={2}>
                 {visit.description || "-"}
@@ -369,10 +376,10 @@ export function VisitDetailPage() {
               <Form.Item label="去向" name="destination">
                 <Select
                   options={[
-                    { label: "Observation", value: "observation" },
-                    { label: "Return Class", value: "return_class" },
-                    { label: "Hospital Referral", value: "hospital" },
-                    { label: "Urgent", value: "urgent" },
+                    { label: "留观", value: "observation" },
+                    { label: "返回班级", value: "return_class" },
+                    { label: "转诊", value: "hospital" },
+                    { label: "紧急处理", value: "urgent" },
                   ]}
                 />
               </Form.Item>
@@ -401,19 +408,19 @@ export function VisitDetailPage() {
         title="AI 辅助决策"
         extra={
           <Space>
-            <Button loading={aiLoading.analyze} onClick={() => void runAnalyze()}>
+            <Button loading={aiLoading.analyze} icon={<BulbOutlined />} onClick={() => void runAnalyze()}>
               症状结构化
             </Button>
-            <Button loading={aiLoading.triage} onClick={() => void runTriage()}>
+            <Button loading={aiLoading.triage} icon={<SearchOutlined />} onClick={() => void runTriage()}>
               智能分诊
             </Button>
-            <Button loading={aiLoading.recommend} onClick={() => void runRecommend()}>
+            <Button loading={aiLoading.recommend} icon={<MedicineBoxOutlined />} onClick={() => void runRecommend()}>
               药品推荐
             </Button>
-            <Button loading={aiLoading.interaction} onClick={() => void runInteractionCheck()}>
+            <Button loading={aiLoading.interaction} icon={<SafetyOutlined />} onClick={() => void runInteractionCheck()}>
               相互作用检查
             </Button>
-            <Button type="primary" onClick={() => void runAllAI()}>
+            <Button type="primary" icon={<ThunderboltOutlined />} onClick={() => void runAllAI()}>
               一键生成建议
             </Button>
           </Space>
@@ -497,7 +504,7 @@ export function VisitDetailPage() {
                         type="warning"
                         showIcon
                         message="风险提示"
-                        description={triageResult.riskFlags.join("；")}
+                        description={(triageResult.riskFlags ?? []).join("；")}
                       />
                     ) : null}
                   </Space>
@@ -551,7 +558,7 @@ export function VisitDetailPage() {
                         type="warning"
                         showIcon
                         message="禁忌提示"
-                        description={recommendResult.contraindications.join("；")}
+                        description={(recommendResult.contraindications ?? []).join("；")}
                       />
                     ) : null}
                   </Space>

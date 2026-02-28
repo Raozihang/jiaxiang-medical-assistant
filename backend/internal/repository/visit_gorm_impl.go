@@ -35,13 +35,13 @@ func (r *GormVisitRepository) EnsureSeedData(ctx context.Context) error {
 		return err
 	}
 
-	symptoms, _ := json.Marshal([]string{"fever"})
+	symptoms, _ := json.Marshal([]string{"发热"})
 	now := time.Now().UTC()
 	return r.db.WithContext(ctx).Create(&model.Visit{
 		StudentID:   student.ID,
 		DoctorID:    uuid.New(),
 		Symptoms:    datatypes.JSON(symptoms),
-		Description: "felt unwell after PE class",
+		Description: "上午体育课后感到不适",
 		Destination: "observation",
 		CreatedAt:   now.Add(-10 * time.Minute),
 		UpdatedAt:   now.Add(-10 * time.Minute),
@@ -274,9 +274,9 @@ func (r *GormVisitRepository) ensureStudentByCode(ctx context.Context, studentID
 	student = model.Student{
 		ID:        uuid.New(),
 		StudentID: studentID,
-		Name:      "Student-" + studentID,
+		Name:      "学生-" + studentID,
 		ClassID:   uuid.New(),
-		Grade:     "Unknown",
+		Grade:     "未知年级",
 	}
 	if createErr := r.db.WithContext(ctx).Create(&student).Error; createErr != nil {
 		return model.Student{}, createErr
@@ -294,7 +294,7 @@ func toVisitDTO(row model.Visit, student model.Student) Visit {
 
 	studentCode := row.StudentID.String()
 	studentName := row.StudentID.String()
-	className := "Unknown Class"
+	className := "未知班级"
 	if student.ID != uuid.Nil {
 		studentCode = student.StudentID
 		studentName = student.Name

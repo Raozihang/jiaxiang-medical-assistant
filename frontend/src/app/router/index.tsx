@@ -49,7 +49,7 @@ const CheckInPage = lazy(() =>
 function RouteLoading() {
   return (
     <div style={{ minHeight: 240, display: "grid", placeItems: "center" }}>
-      <Spin size="large" tip="Loading page..." />
+      <Spin size="large" tip="页面加载中..." />
     </div>
   );
 }

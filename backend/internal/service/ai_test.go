@@ -41,3 +41,61 @@ func TestAIServiceInteractionCheckDetectsKnownPair(t *testing.T) {
 		t.Fatalf("expected at least one interaction")
 	}
 }
+
+type customAIProviderStub struct {
+	analyzeCalled          bool
+	triageCalled           bool
+	recommendCalled        bool
+	interactionCheckCalled bool
+	analyzeResult          AnalyzeResult
+}
+
+func (s *customAIProviderStub) Analyze(_ context.Context, _ AnalyzeInput) (AnalyzeResult, error) {
+	s.analyzeCalled = true
+	return s.analyzeResult, nil
+}
+
+func (s *customAIProviderStub) Triage(_ context.Context, _ TriageInput) (TriageResult, error) {
+	s.triageCalled = true
+	return TriageResult{}, nil
+}
+
+func (s *customAIProviderStub) Recommend(_ context.Context, _ RecommendInput) (RecommendResult, error) {
+	s.recommendCalled = true
+	return RecommendResult{}, nil
+}
+
+func (s *customAIProviderStub) InteractionCheck(_ context.Context, _ InteractionCheckInput) (InteractionCheckResult, error) {
+	s.interactionCheckCalled = true
+	return InteractionCheckResult{}, nil
+}
+
+func TestAIServiceAnalyzeDelegatesToCustomProvider(t *testing.T) {
+	provider := &customAIProviderStub{
+		analyzeResult: AnalyzeResult{
+			RiskLevel:  "custom",
+			Confidence: 0.99,
+		},
+	}
+	svc := NewAIServiceWithProvider(provider)
+
+	result, err := svc.Analyze(context.Background(), AnalyzeInput{
+		Symptoms: []string{"headache"},
+	})
+	if err != nil {
+		t.Fatalf("analyze failed: %v", err)
+	}
+
+	if !provider.analyzeCalled {
+		t.Fatalf("expected custom provider analyze to be called")
+	}
+	if provider.triageCalled || provider.recommendCalled || provider.interactionCheckCalled {
+		t.Fatalf("expected only analyze delegation")
+	}
+	if result.RiskLevel != "custom" {
+		t.Fatalf("expected custom risk level, got %s", result.RiskLevel)
+	}
+	if result.Confidence != 0.99 {
+		t.Fatalf("expected custom confidence, got %f", result.Confidence)
+	}
+}

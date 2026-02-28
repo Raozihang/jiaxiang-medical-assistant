@@ -22,11 +22,16 @@ export type SafetyAlert = {
 function toSafetyAlert(item: unknown, index = 0): SafetyAlert {
   const record = asRecord(item);
   const rule = toText(pickFirst(record, ["rule"]), "general");
+  const titleMap: Record<string, string> = {
+    observation_timeout: "留观超时",
+    visit_unclosed: "就诊未关闭",
+    repeat_visit_3d: "3天内重复就诊",
+  };
   return {
     id: toText(pickFirst(record, ["id"]), `alert-${index}`),
     level: rule === "observation_timeout" ? "high" : "medium",
     type: rule,
-    title: rule === "observation_timeout" ? "留观超时" : "安全告警",
+    title: titleMap[rule] ?? "安全告警",
     description: toText(pickFirst(record, ["message", "description"]), ""),
     source: toText(pickFirst(record, ["student_id", "source"]), "system"),
     status: toText(pickFirst(record, ["status"]), "open"),

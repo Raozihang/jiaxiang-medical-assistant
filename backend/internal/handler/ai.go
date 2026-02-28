@@ -19,7 +19,7 @@ func NewAIHandler(aiService *service.AIService) *AIHandler {
 func (h *AIHandler) Analyze(c *gin.Context) {
 	var req service.AnalyzeInput
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, 1001, "invalid request body")
+		response.Fail(c, http.StatusBadRequest, 1001, "请求参数无效")
 		return
 	}
 
@@ -35,7 +35,7 @@ func (h *AIHandler) Analyze(c *gin.Context) {
 func (h *AIHandler) Triage(c *gin.Context) {
 	var req service.TriageInput
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, 1001, "invalid request body")
+		response.Fail(c, http.StatusBadRequest, 1001, "请求参数无效")
 		return
 	}
 
@@ -51,7 +51,7 @@ func (h *AIHandler) Triage(c *gin.Context) {
 func (h *AIHandler) Recommend(c *gin.Context) {
 	var req service.RecommendInput
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, 1001, "invalid request body")
+		response.Fail(c, http.StatusBadRequest, 1001, "请求参数无效")
 		return
 	}
 
@@ -67,7 +67,7 @@ func (h *AIHandler) Recommend(c *gin.Context) {
 func (h *AIHandler) InteractionCheck(c *gin.Context) {
 	var req service.InteractionCheckInput
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, 1001, "invalid request body")
+		response.Fail(c, http.StatusBadRequest, 1001, "请求参数无效")
 		return
 	}
 

@@ -1,53 +1,188 @@
+/* ──────────────────────────────────────────
+   Design Tokens
+   ────────────────────────────────────────── */
 :root {
-  color: #0f172a;
-  background-color: #f5f7fb;
-  font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --color-primary: #0d9488;
+  --color-primary-light: #5eead4;
+  --color-sidebar-start: #0f172a;
+  --color-sidebar-end: #1e293b;
+  --color-bg: #f0f5f9;
+  --color-surface: #ffffff;
+  --color-text: #0f172a;
+  --color-text-secondary: #64748b;
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06);
+  --shadow-card: 0 4px 20px rgba(15, 23, 42, 0.06);
+  --shadow-card-hover: 0 8px 30px rgba(15, 23, 42, 0.12);
+  --radius-lg: 14px;
+  --transition-fast: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --font-family: 'Inter', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
 }
 
+/* ──────────────────────────────────────────
+   Base Reset
+   ────────────────────────────────────────── */
 * {
   box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body,
 #root {
   margin: 0;
   min-height: 100vh;
+  font-family: var(--font-family);
+  color: var(--color-text);
+  background-color: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
+/* ──────────────────────────────────────────
+   App Shell
+   ────────────────────────────────────────── */
 .app-shell {
   min-height: 100vh;
 }
 
+/* ──────────────────────────────────────────
+   Sidebar
+   ────────────────────────────────────────── */
+.sidebar-inner {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: linear-gradient(180deg, var(--color-sidebar-start), var(--color-sidebar-end));
+}
+
 .app-logo {
-  height: 56px;
-  margin: 12px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, #1d4ed8, #2563eb);
+  height: 64px;
+  margin: 16px 12px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--color-primary), #14b8a6);
   color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 600;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.5px;
+  box-shadow: 0 4px 15px rgba(13, 148, 136, 0.35);
+  transition: all var(--transition-normal);
+  overflow: hidden;
+  white-space: nowrap;
 }
 
+.app-logo-collapsed {
+  height: 48px;
+  margin: 12px 8px;
+  border-radius: 10px;
+  font-size: 20px;
+}
+
+.app-logo-icon {
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.app-logo-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.app-logo-text small {
+  font-size: 10px;
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  padding: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  text-align: center;
+}
+
+.sidebar-footer span {
+  color: rgba(255, 255, 255, 0.25);
+  font-size: 11px;
+}
+
+/* ──────────────────────────────────────────
+   Header
+   ────────────────────────────────────────── */
 .app-header {
-  background: #fff;
-  border-bottom: 1px solid #e5e7eb;
+  background: rgba(255, 255, 255, 0.85) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
   display: flex;
   align-items: center;
-  padding: 0 20px;
+  padding: 0 24px !important;
+  height: 64px !important;
+  position: sticky;
+  top: 0;
+  z-index: 100;
 }
 
+.header-content {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.header-time {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ──────────────────────────────────────────
+   Content Area
+   ────────────────────────────────────────── */
 .app-content {
-  padding: 20px;
+  padding: 24px;
+  animation: fadeSlideIn var(--transition-normal) ease-out;
 }
 
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ──────────────────────────────────────────
+   Loading / Auth
+   ────────────────────────────────────────── */
 .app-loading {
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #475569;
+  color: var(--color-text-secondary);
 }
 
 .auth-page {
@@ -56,12 +191,247 @@ body,
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: radial-gradient(circle at top, #dbeafe 0%, #f5f7fb 45%, #eef2ff 100%);
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(13, 148, 136, 0.12) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(14, 165, 233, 0.08) 0%, transparent 50%),
+    linear-gradient(135deg, #f0f5f9 0%, #e0ecf5 50%, #eef2ff 100%);
+  position: relative;
+  overflow: hidden;
 }
 
 .auth-card {
   width: 100%;
-  max-width: 420px;
-  border-radius: 14px;
-  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.12);
+  max-width: 440px;
+  border-radius: 18px !important;
+  box-shadow: 0 25px 60px rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.6) inset;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  background: rgba(255, 255, 255, 0.88) !important;
+  animation: authCardIn 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes authCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.auth-logo {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, var(--color-primary), #14b8a6);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  margin-bottom: 8px;
+  box-shadow: 0 6px 20px rgba(13, 148, 136, 0.3);
+}
+
+/* Floating bubbles for login background */
+.auth-bubbles {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.auth-bubble {
+  position: absolute;
+  border-radius: 50%;
+  opacity: 0.07;
+  animation: floatBubble 20s ease-in-out infinite;
+}
+
+.auth-bubble:nth-child(1) {
+  width: 300px;
+  height: 300px;
+  background: var(--color-primary);
+  top: -80px;
+  right: -60px;
+  animation-duration: 25s;
+}
+
+.auth-bubble:nth-child(2) {
+  width: 200px;
+  height: 200px;
+  background: #0ea5e9;
+  bottom: -40px;
+  left: -40px;
+  animation-duration: 18s;
+  animation-delay: -5s;
+}
+
+.auth-bubble:nth-child(3) {
+  width: 150px;
+  height: 150px;
+  background: #8b5cf6;
+  top: 40%;
+  right: 20%;
+  animation-duration: 22s;
+  animation-delay: -10s;
+}
+
+@keyframes floatBubble {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+  }
+  25% {
+    transform: translate(30px, -40px) scale(1.05);
+  }
+  50% {
+    transform: translate(-20px, 20px) scale(0.95);
+  }
+  75% {
+    transform: translate(15px, 35px) scale(1.02);
+  }
+}
+
+/* ──────────────────────────────────────────
+   Card Enhancements
+   ────────────────────────────────────────── */
+.ant-card {
+  transition: box-shadow var(--transition-fast), transform var(--transition-fast);
+  box-shadow: var(--shadow-card);
+}
+
+.ant-card:hover {
+  box-shadow: var(--shadow-card-hover);
+}
+
+/* ──────────────────────────────────────────
+   Dashboard Stat Cards
+   ────────────────────────────────────────── */
+.stat-card {
+  position: relative;
+  overflow: hidden;
+  cursor: default;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.stat-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  border-radius: 0 4px 4px 0;
+}
+
+.stat-card--teal::before {
+  background: linear-gradient(180deg, #0d9488, #14b8a6);
+}
+
+.stat-card--amber::before {
+  background: linear-gradient(180deg, #f59e0b, #fbbf24);
+}
+
+.stat-card--rose::before {
+  background: linear-gradient(180deg, #ef4444, #f87171);
+}
+
+.stat-card--sky::before {
+  background: linear-gradient(180deg, #0ea5e9, #38bdf8);
+}
+
+.stat-card .stat-icon {
+  position: absolute;
+  right: 20px;
+  top: 20px;
+  font-size: 36px;
+  opacity: 0.08;
+}
+
+/* ──────────────────────────────────────────
+   Welcome Banner
+   ────────────────────────────────────────── */
+.welcome-banner {
+  border-radius: var(--radius-lg) !important;
+  background: linear-gradient(135deg, #0d9488 0%, #0ea5e9 100%) !important;
+  border: none !important;
+  color: #fff;
+  overflow: hidden;
+  position: relative;
+}
+
+.welcome-banner::after {
+  content: '';
+  position: absolute;
+  right: -30px;
+  top: -30px;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.welcome-banner .ant-card-body {
+  position: relative;
+  z-index: 1;
+}
+
+/* ──────────────────────────────────────────
+   Medicine Row Warning
+   ────────────────────────────────────────── */
+.medicine-row-warning {
+  background-color: #fef3c7 !important;
+}
+
+.medicine-row-warning:hover > td {
+  background-color: #fde68a !important;
+}
+
+/* ──────────────────────────────────────────
+   Student Check-in
+   ────────────────────────────────────────── */
+.student-checkin-wrapper {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+/* ──────────────────────────────────────────
+   Scrollbar
+   ────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+/* ──────────────────────────────────────────
+   Responsive
+   ────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .app-content {
+    padding: 16px;
+  }
+
+  .auth-card {
+    max-width: 100%;
+  }
 }

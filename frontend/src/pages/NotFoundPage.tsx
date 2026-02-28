@@ -7,11 +7,11 @@ export function NotFoundPage() {
   return (
     <Result
       status="404"
-      title="Page not found"
-      subTitle="Please check the URL or return to the homepage."
+      title="页面未找到"
+      subTitle="请检查地址或返回首页。"
       extra={
         <Button type="primary" onClick={() => navigate("/")}>
-          Back Home
+          返回首页
         </Button>
       }
     />

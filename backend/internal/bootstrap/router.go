@@ -32,10 +32,10 @@ func registerRoutes(engine *gin.Engine, cfg config.Config, db *gorm.DB) error {
 
 	seedContext := context.Background()
 	if err := visitService.EnsureSeedData(seedContext); err != nil {
-		log.Printf("visit seed failed: %v", err)
+		log.Printf("就诊种子数据初始化失败: %v", err)
 	}
 	if err := medicineService.EnsureSeedData(seedContext); err != nil {
-		log.Printf("medicine seed failed: %v", err)
+		log.Printf("药品种子数据初始化失败: %v", err)
 	}
 
 	healthHandler := handler.NewHealthHandler(cfg, dataMode)
@@ -81,6 +81,7 @@ func registerRoutes(engine *gin.Engine, cfg config.Config, db *gorm.DB) error {
 			protected.GET("/import/tasks/:id", importHandler.TaskDetail)
 
 			protected.POST("/notifications/send", notificationHandler.Send)
+			protected.POST("/notifications/dispatch", notificationHandler.Dispatch)
 			protected.GET("/notifications/logs", notificationHandler.Logs)
 
 			protected.GET("/safety/alerts", safetyHandler.Alerts)

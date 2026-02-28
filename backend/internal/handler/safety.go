@@ -41,12 +41,12 @@ func (h *SafetyHandler) Alerts(c *gin.Context) {
 func (h *SafetyHandler) UpdateAlert(c *gin.Context) {
 	var req UpdateSafetyAlertRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, 1001, "invalid request body")
+		response.Fail(c, http.StatusBadRequest, 1001, "请求参数无效")
 		return
 	}
 
 	if strings.ToLower(strings.TrimSpace(req.Status)) != "resolved" {
-		response.Fail(c, http.StatusBadRequest, 1001, "status must be resolved")
+		response.Fail(c, http.StatusBadRequest, 1001, "状态必须为 resolved")
 		return
 	}
 

@@ -6,7 +6,16 @@ import (
 	"strings"
 )
 
-type AIService struct{}
+type AIProvider interface {
+	Analyze(context.Context, AnalyzeInput) (AnalyzeResult, error)
+	Triage(context.Context, TriageInput) (TriageResult, error)
+	Recommend(context.Context, RecommendInput) (RecommendResult, error)
+	InteractionCheck(context.Context, InteractionCheckInput) (InteractionCheckResult, error)
+}
+
+type AIService struct {
+	provider AIProvider
+}
 
 type AnalyzeInput struct {
 	Symptoms    []string `json:"symptoms"`
@@ -66,11 +75,47 @@ type MedicationInteraction struct {
 	Effect   string   `json:"effect"`
 }
 
+type ruleBasedAIProvider struct{}
+
+var defaultAIProvider AIProvider = &ruleBasedAIProvider{}
+
 func NewAIService() *AIService {
-	return &AIService{}
+	return NewAIServiceWithProvider(nil)
 }
 
-func (s *AIService) Analyze(_ context.Context, input AnalyzeInput) (AnalyzeResult, error) {
+func NewAIServiceWithProvider(provider AIProvider) *AIService {
+	if provider == nil {
+		provider = defaultAIProvider
+	}
+
+	return &AIService{provider: provider}
+}
+
+func (s *AIService) resolveProvider() AIProvider {
+	if s == nil || s.provider == nil {
+		return defaultAIProvider
+	}
+
+	return s.provider
+}
+
+func (s *AIService) Analyze(ctx context.Context, input AnalyzeInput) (AnalyzeResult, error) {
+	return s.resolveProvider().Analyze(ctx, input)
+}
+
+func (s *AIService) Triage(ctx context.Context, input TriageInput) (TriageResult, error) {
+	return s.resolveProvider().Triage(ctx, input)
+}
+
+func (s *AIService) Recommend(ctx context.Context, input RecommendInput) (RecommendResult, error) {
+	return s.resolveProvider().Recommend(ctx, input)
+}
+
+func (s *AIService) InteractionCheck(ctx context.Context, input InteractionCheckInput) (InteractionCheckResult, error) {
+	return s.resolveProvider().InteractionCheck(ctx, input)
+}
+
+func (p *ruleBasedAIProvider) Analyze(_ context.Context, input AnalyzeInput) (AnalyzeResult, error) {
 	matched := collectSignals(input.Symptoms, input.Description)
 	risk, confidence := estimateRisk(input.Temperature, matched)
 
@@ -94,8 +139,8 @@ func (s *AIService) Analyze(_ context.Context, input AnalyzeInput) (AnalyzeResul
 	}, nil
 }
 
-func (s *AIService) Triage(ctx context.Context, input TriageInput) (TriageResult, error) {
-	analysis, err := s.Analyze(ctx, AnalyzeInput{
+func (p *ruleBasedAIProvider) Triage(ctx context.Context, input TriageInput) (TriageResult, error) {
+	analysis, err := p.Analyze(ctx, AnalyzeInput{
 		Symptoms:    input.Symptoms,
 		Description: input.Description,
 		Temperature: input.Temperature,
@@ -130,7 +175,7 @@ func (s *AIService) Triage(ctx context.Context, input TriageInput) (TriageResult
 	return result, nil
 }
 
-func (s *AIService) Recommend(_ context.Context, input RecommendInput) (RecommendResult, error) {
+func (p *ruleBasedAIProvider) Recommend(_ context.Context, input RecommendInput) (RecommendResult, error) {
 	destination := strings.TrimSpace(strings.ToLower(input.Destination))
 	if destination == "" {
 		destination = "observation"
@@ -160,7 +205,7 @@ func (s *AIService) Recommend(_ context.Context, input RecommendInput) (Recommen
 	}, nil
 }
 
-func (s *AIService) InteractionCheck(_ context.Context, input InteractionCheckInput) (InteractionCheckResult, error) {
+func (p *ruleBasedAIProvider) InteractionCheck(_ context.Context, input InteractionCheckInput) (InteractionCheckResult, error) {
 	interactions := make([]MedicationInteraction, 0)
 
 	normalized := make([]string, 0, len(input.Medicines))

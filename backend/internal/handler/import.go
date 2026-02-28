@@ -19,7 +19,7 @@ func NewImportHandler(importService *service.ImportService) *ImportHandler {
 func (h *ImportHandler) ImportVisits(c *gin.Context) {
 	var req []service.VisitImportItem
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, 1001, "invalid request body")
+		response.Fail(c, http.StatusBadRequest, 1001, "请求参数无效")
 		return
 	}
 

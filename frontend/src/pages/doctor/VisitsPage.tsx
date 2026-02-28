@@ -1,3 +1,4 @@
+import { EyeOutlined, ReloadOutlined } from "@ant-design/icons";
 import { Button, Card, Space, Table, Tag, Typography } from "antd";
 import type { ColumnsType, TablePaginationConfig } from "antd/es/table";
 import { useCallback, useEffect, useState } from "react";
@@ -53,21 +54,27 @@ export function VisitsPage() {
   }, [fetchList]);
 
   const columns: ColumnsType<VisitRow> = [
-    { title: "Student", dataIndex: "studentName" },
-    { title: "Class", dataIndex: "className" },
-    { title: "Symptoms", dataIndex: "symptom" },
+    { title: "学生姓名", dataIndex: "studentName" },
+    { title: "班级", dataIndex: "className" },
+    { title: "症状", dataIndex: "symptom", ellipsis: true },
     {
-      title: "Priority",
+      title: "优先级",
       dataIndex: "level",
+      width: 100,
       render: (value: VisitRow["level"]) =>
-        value === "urgent" ? <Tag color="red">Urgent</Tag> : <Tag color="blue">Normal</Tag>,
+        value === "urgent" ? (
+          <Tag color="red" bordered={false}>紧急</Tag>
+        ) : (
+          <Tag color="cyan" bordered={false}>普通</Tag>
+        ),
     },
-    { title: "Created At", dataIndex: "createdAt" },
+    { title: "创建时间", dataIndex: "createdAt", width: 180 },
     {
-      title: "Action",
+      title: "操作",
+      width: 100,
       render: (_, row) => (
-        <Button type="link" onClick={() => navigate(`/doctor/visit/${row.id}`)}>
-          View
+        <Button type="link" icon={<EyeOutlined />} onClick={() => navigate(`/doctor/visit/${row.id}`)}>
+          查看
         </Button>
       ),
     },
@@ -75,15 +82,21 @@ export function VisitsPage() {
 
   return (
     <Space direction="vertical" size={16} style={{ width: "100%" }}>
-      <Typography.Title level={3} style={{ marginBottom: 0 }}>
-        Visit Queue
-      </Typography.Title>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <Typography.Title level={3} style={{ marginBottom: 0 }}>
+          就诊队列
+        </Typography.Title>
+        <Button icon={<ReloadOutlined />} onClick={() => void fetchList(page)}>
+          刷新
+        </Button>
+      </div>
       <Card>
         <Table
           rowKey="id"
           columns={columns}
           dataSource={rows}
           loading={loading}
+          locale={{ emptyText: "暂无就诊记录" }}
           pagination={
             {
               current: page,
@@ -99,3 +112,4 @@ export function VisitsPage() {
     </Space>
   );
 }
+

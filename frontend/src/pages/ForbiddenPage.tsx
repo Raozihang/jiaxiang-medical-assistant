@@ -9,11 +9,11 @@ export function ForbiddenPage() {
   return (
     <Result
       status="403"
-      title="Access denied"
-      subTitle="You do not have permission to access this page."
+      title="访问被拒绝"
+      subTitle="您没有权限访问此页面。"
       extra={
         <Button type="primary" onClick={() => navigate(resolveHomePath(user?.role), { replace: true })}>
-          Back to home
+          返回首页
         </Button>
       }
     />

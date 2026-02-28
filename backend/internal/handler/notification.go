@@ -19,11 +19,27 @@ func NewNotificationHandler(notificationService *service.NotificationService) *N
 func (h *NotificationHandler) Send(c *gin.Context) {
 	var req service.SendNotificationInput
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, 1001, "invalid request body")
+		response.Fail(c, http.StatusBadRequest, 1001, "请求参数无效")
 		return
 	}
 
 	log, err := h.notificationService.Send(c.Request.Context(), req)
+	if err != nil {
+		handleDomainError(c, err)
+		return
+	}
+
+	response.Success(c, log)
+}
+
+func (h *NotificationHandler) Dispatch(c *gin.Context) {
+	var req service.DispatchScenarioInput
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Fail(c, http.StatusBadRequest, 1001, "请求参数无效")
+		return
+	}
+
+	log, err := h.notificationService.DispatchScenario(c.Request.Context(), req)
 	if err != nil {
 		handleDomainError(c, err)
 		return

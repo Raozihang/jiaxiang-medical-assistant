@@ -15,6 +15,21 @@ export type SendNotificationPayload = {
   message: string;
 };
 
+export type NotificationScenario =
+  | "visit_completed"
+  | "observation_notice"
+  | "follow_up_reminder";
+
+export type DispatchScenarioNotificationPayload = {
+  scenario: NotificationScenario;
+  channel: NotificationChannel;
+  receiver: string;
+  student_name?: string;
+  destination?: string;
+  follow_up_at?: string;
+  note?: string;
+};
+
 export type NotificationLog = {
   id: string;
   channel: string;
@@ -40,6 +55,11 @@ function toNotificationLog(item: unknown, index = 0): NotificationLog {
 
 export async function sendNotification(payload: SendNotificationPayload) {
   const response = await http.post("/notifications/send", payload);
+  return toNotificationLog(unwrapApiData(response.data));
+}
+
+export async function dispatchScenarioNotification(payload: DispatchScenarioNotificationPayload) {
+  const response = await http.post("/notifications/dispatch", payload);
   return toNotificationLog(unwrapApiData(response.data));
 }
 

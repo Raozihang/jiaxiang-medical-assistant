@@ -40,7 +40,7 @@ function toImportTaskError(item: unknown, index = 0): ImportTaskError {
   const record = asRecord(item);
   return {
     index: toNumber(pickFirst(record, ["index"])) ?? index,
-    message: toText(pickFirst(record, ["message", "error"]), "unknown error"),
+    message: toText(pickFirst(record, ["message", "error"]), "未知错误"),
   };
 }
 

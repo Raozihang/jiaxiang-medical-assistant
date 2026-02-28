@@ -20,8 +20,31 @@ type SendNotificationInput struct {
 	Message  string `json:"message"`
 }
 
+type DispatchScenarioInput struct {
+	Scenario    string `json:"scenario"`
+	Channel     string `json:"channel"`
+	Receiver    string `json:"receiver"`
+	StudentName string `json:"student_name"`
+	Destination string `json:"destination"`
+	FollowUpAt  string `json:"follow_up_at"`
+	Note        string `json:"note"`
+}
+
 func NewNotificationService(logRepo repository.NotificationLogRepository) *NotificationService {
 	return &NotificationService{logRepo: logRepo}
+}
+
+func (s *NotificationService) DispatchScenario(ctx context.Context, input DispatchScenarioInput) (repository.NotificationLog, error) {
+	message, err := buildScenarioMessage(input)
+	if err != nil {
+		return repository.NotificationLog{}, err
+	}
+
+	return s.Send(ctx, SendNotificationInput{
+		Channel:  input.Channel,
+		Receiver: input.Receiver,
+		Message:  message,
+	})
 }
 
 func (s *NotificationService) Send(ctx context.Context, input SendNotificationInput) (repository.NotificationLog, error) {
@@ -40,12 +63,12 @@ func (s *NotificationService) Send(ctx context.Context, input SendNotificationIn
 	}
 
 	if channel != "wechat" && channel != "dingtalk" {
-		log.Error = "unsupported channel"
+		log.Error = "不支持的通知渠道"
 		_ = s.logRepo.Append(ctx, log)
 		return repository.NotificationLog{}, ErrInvalidInput
 	}
 	if receiver == "" || message == "" {
-		log.Error = "receiver and message are required"
+		log.Error = "接收人和消息内容不能为空"
 		_ = s.logRepo.Append(ctx, log)
 		return repository.NotificationLog{}, ErrInvalidInput
 	}
@@ -70,4 +93,50 @@ func (s *NotificationService) ListLogs(ctx context.Context) ([]repository.Notifi
 	})
 
 	return logs, nil
+}
+
+func buildScenarioMessage(input DispatchScenarioInput) (string, error) {
+	scenario := strings.ToLower(strings.TrimSpace(input.Scenario))
+	studentName := strings.TrimSpace(input.StudentName)
+	if studentName == "" {
+		studentName = "该学生"
+	}
+	destination := strings.TrimSpace(input.Destination)
+	followUpAt := strings.TrimSpace(input.FollowUpAt)
+	note := strings.TrimSpace(input.Note)
+
+	switch scenario {
+	case "visit_completed":
+		parts := []string{studentName + "已完成本次就诊。"}
+		if destination != "" {
+			parts = append(parts, "去向："+destination+"。")
+		}
+		if note != "" {
+			parts = append(parts, "备注："+note+"。")
+		}
+		return strings.Join(parts, " "), nil
+	case "observation_notice":
+		parts := []string{studentName + "目前需要留观，请及时关注。"}
+		if destination != "" {
+			parts = append(parts, "留观点："+destination+"。")
+		}
+		if note != "" {
+			parts = append(parts, "说明："+note+"。")
+		}
+		return strings.Join(parts, " "), nil
+	case "follow_up_reminder":
+		parts := []string{"请提醒" + studentName + "按时复诊。"}
+		if followUpAt != "" {
+			parts = append(parts, "复诊时间："+followUpAt+"。")
+		}
+		if destination != "" {
+			parts = append(parts, "复诊地点："+destination+"。")
+		}
+		if note != "" {
+			parts = append(parts, "备注："+note+"。")
+		}
+		return strings.Join(parts, " "), nil
+	default:
+		return "", ErrInvalidInput
+	}
 }

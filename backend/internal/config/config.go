@@ -87,26 +87,26 @@ func (c Config) Validate() error {
 func (c AuthConfig) Validate() error {
 	jwtSecret := strings.TrimSpace(c.JWTSecret)
 	if jwtSecret == "" {
-		return errors.New("AUTH_JWT_SECRET is required")
+		return errors.New("AUTH_JWT_SECRET 不能为空")
 	}
 	if jwtSecret == "replace-with-a-long-random-secret" {
-		return errors.New("AUTH_JWT_SECRET must be replaced from placeholder")
+		return errors.New("AUTH_JWT_SECRET 必须替换为自定义值")
 	}
 
 	doctorAccount := strings.TrimSpace(c.DoctorAccount)
 	adminAccount := strings.TrimSpace(c.AdminAccount)
 	if doctorAccount == "" || adminAccount == "" {
-		return errors.New("AUTH_DOCTOR_ACCOUNT and AUTH_ADMIN_ACCOUNT are required")
+		return errors.New("AUTH_DOCTOR_ACCOUNT 和 AUTH_ADMIN_ACCOUNT 不能为空")
 	}
 	if doctorAccount == adminAccount {
-		return errors.New("AUTH_DOCTOR_ACCOUNT and AUTH_ADMIN_ACCOUNT must be different")
+		return errors.New("AUTH_DOCTOR_ACCOUNT 和 AUTH_ADMIN_ACCOUNT 不能相同")
 	}
 
 	if isUnsafePassword(c.DoctorPassword, "replace-with-doctor-password") {
-		return errors.New("AUTH_DOCTOR_PASSWORD must be changed to a non-default value")
+		return errors.New("AUTH_DOCTOR_PASSWORD 必须设置为非默认值")
 	}
 	if isUnsafePassword(c.AdminPassword, "replace-with-admin-password") {
-		return errors.New("AUTH_ADMIN_PASSWORD must be changed to a non-default value")
+		return errors.New("AUTH_ADMIN_PASSWORD 必须设置为非默认值")
 	}
 
 	return nil

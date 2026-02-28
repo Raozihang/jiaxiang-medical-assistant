@@ -236,7 +236,7 @@ function parseRecommendResult(payload: unknown): RecommendResult {
             dosage: "",
             frequency: "",
             duration: "",
-            reason: "AI hint",
+            reason: "AI 推荐提示",
             caution: "",
           })),
     advice: toStringArray(pickFirst(record, ["advice", "instructions", "recommendations", "care_plan"])),

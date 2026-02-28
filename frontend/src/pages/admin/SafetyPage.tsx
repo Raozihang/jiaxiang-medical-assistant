@@ -158,7 +158,7 @@ export function SafetyPage() {
             cancelText="取消"
           >
             <Button type="link" loading={resolvingId === row.id}>
-              标记 resolved
+              标记已处理
             </Button>
           </Popconfirm>
         );

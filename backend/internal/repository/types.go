@@ -7,8 +7,8 @@ import (
 )
 
 var (
-	ErrNotFound          = errors.New("resource not found")
-	ErrInsufficientStock = errors.New("insufficient stock")
+	ErrNotFound          = errors.New("资源未找到")
+	ErrInsufficientStock = errors.New("库存不足")
 )
 
 type PageParams struct {
