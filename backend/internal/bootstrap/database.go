@@ -28,6 +28,7 @@ func InitDatabase(cfg config.Config) (*gorm.DB, func()) {
 		&model.Medicine{},
 		&model.ImportTask{},
 		&model.NotificationLog{},
+		&model.OutboundCall{},
 		&model.SafetyAlertState{},
 	); err != nil {
 		log.Printf("数据库迁移失败: %v", err)

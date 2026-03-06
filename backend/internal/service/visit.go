@@ -9,7 +9,8 @@ import (
 )
 
 type VisitService struct {
-	repo repository.VisitRepository
+	repo                repository.VisitRepository
+	outboundCallService *OutboundCallService
 }
 
 type VisitListInput struct {
@@ -32,8 +33,12 @@ type UpdateVisitInput struct {
 	FollowUpNote *string
 }
 
-func NewVisitService(repo repository.VisitRepository) *VisitService {
-	return &VisitService{repo: repo}
+func NewVisitService(repo repository.VisitRepository, outboundCallService ...*OutboundCallService) *VisitService {
+	service := &VisitService{repo: repo}
+	if len(outboundCallService) > 0 {
+		service.outboundCallService = outboundCallService[0]
+	}
+	return service
 }
 
 func (s *VisitService) EnsureSeedData(ctx context.Context) error {
@@ -90,5 +95,13 @@ func (s *VisitService) Update(ctx context.Context, id string, input UpdateVisitI
 		}
 	}
 
-	return s.repo.Update(ctx, strings.TrimSpace(id), repoInput)
+	visit, err := s.repo.Update(ctx, strings.TrimSpace(id), repoInput)
+	if err != nil {
+		return repository.Visit{}, err
+	}
+	if s.outboundCallService != nil {
+		s.outboundCallService.TrackVisitUpdate(ctx, visit)
+	}
+
+	return visit, nil
 }

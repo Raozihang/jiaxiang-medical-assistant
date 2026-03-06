@@ -16,14 +16,20 @@ import (
 func registerRoutes(engine *gin.Engine, cfg config.Config, db *gorm.DB) error {
 	dataMode := cfg.ResolveDataMode(db != nil)
 	visitRepo, medicineRepo := buildRepositories(dataMode, db)
-	importTaskRepo, notificationLogRepo, safetyAlertStateRepo := buildStateRepositories(dataMode, db)
+	importTaskRepo, notificationLogRepo, safetyAlertStateRepo, studentContactRepo, outboundCallRepo := buildStateRepositories(dataMode, db)
+	outboundProvider, err := buildOutboundCallProvider(cfg)
+	if err != nil {
+		return err
+	}
 
-	visitService := service.NewVisitService(visitRepo)
+	outboundCallService := service.NewOutboundCallService(outboundCallRepo, visitRepo, studentContactRepo, outboundProvider, cfg.Outbound.AliyunTemplateCode)
+	visitService := service.NewVisitService(visitRepo, outboundCallService)
 	medicineService := service.NewMedicineService(medicineRepo)
 	reportService := service.NewReportService(visitRepo, medicineRepo)
 	aiService := service.NewAIService()
 	importService := service.NewImportService(visitRepo, importTaskRepo)
 	notificationService := service.NewNotificationService(notificationLogRepo)
+	studentContactService := service.NewStudentContactService(studentContactRepo)
 	safetyService := service.NewSafetyService(visitRepo, safetyAlertStateRepo)
 	authService, err := service.NewAuthService(cfg, dataMode)
 	if err != nil {
@@ -46,12 +52,15 @@ func registerRoutes(engine *gin.Engine, cfg config.Config, db *gorm.DB) error {
 	aiHandler := handler.NewAIHandler(aiService)
 	importHandler := handler.NewImportHandler(importService)
 	notificationHandler := handler.NewNotificationHandler(notificationService)
+	studentContactHandler := handler.NewStudentContactHandler(studentContactService)
+	outboundCallHandler := handler.NewOutboundCallHandler(outboundCallService, cfg.Outbound.AliyunCallbackSecret)
 	safetyHandler := handler.NewSafetyHandler(safetyService)
 
 	api := engine.Group("/api/v1")
 	{
 		api.GET("/healthz", healthHandler.Healthz)
 		api.POST("/auth/login", authHandler.Login)
+		api.POST("/outbound-calls/callback/aliyun", outboundCallHandler.AliyunCallback)
 
 		api.POST("/visits", visitHandler.Create)
 
@@ -83,6 +92,10 @@ func registerRoutes(engine *gin.Engine, cfg config.Config, db *gorm.DB) error {
 			protected.POST("/notifications/send", notificationHandler.Send)
 			protected.POST("/notifications/dispatch", notificationHandler.Dispatch)
 			protected.GET("/notifications/logs", notificationHandler.Logs)
+			protected.GET("/students/contacts", studentContactHandler.List)
+			protected.PUT("/students/:studentId/contact", studentContactHandler.Update)
+			protected.GET("/outbound-calls", outboundCallHandler.List)
+			protected.POST("/outbound-calls/:id/retry", outboundCallHandler.Retry)
 
 			protected.GET("/safety/alerts", safetyHandler.Alerts)
 			protected.PATCH("/safety/alerts/:id", safetyHandler.UpdateAlert)
@@ -104,14 +117,34 @@ func buildStateRepositories(dataMode string, db *gorm.DB) (
 	repository.ImportTaskRepository,
 	repository.NotificationLogRepository,
 	repository.SafetyAlertStateRepository,
+	repository.StudentContactRepository,
+	repository.OutboundCallRepository,
 ) {
 	if dataMode == "db" && db != nil {
 		return repository.NewGormImportTaskRepository(db),
 			repository.NewGormNotificationLogRepository(db),
-			repository.NewGormSafetyAlertStateRepository(db)
+			repository.NewGormSafetyAlertStateRepository(db),
+			repository.NewGormStudentContactRepository(db),
+			repository.NewGormOutboundCallRepository(db)
 	}
 
 	return repository.NewMemoryImportTaskRepository(),
 		repository.NewMemoryNotificationLogRepository(),
-		repository.NewMemorySafetyAlertStateRepository()
+		repository.NewMemorySafetyAlertStateRepository(),
+		repository.NewMemoryStudentContactRepository(),
+		repository.NewMemoryOutboundCallRepository()
+}
+
+func buildOutboundCallProvider(cfg config.Config) (service.OutboundCallProvider, error) {
+	if cfg.Outbound.Provider == "aliyun" {
+		provider, err := service.NewAliyunOutboundCallProvider(cfg.Outbound)
+		if err != nil {
+			return nil, err
+		}
+		log.Printf("outbound call provider: aliyun")
+		return provider, nil
+	}
+
+	log.Printf("outbound call provider: mock")
+	return service.NewMockOutboundCallProvider(), nil
 }
