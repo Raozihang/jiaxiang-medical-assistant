@@ -8,13 +8,16 @@ import (
 )
 
 type Student struct {
-	ID        uuid.UUID `gorm:"type:uuid;primaryKey" json:"id"`
-	StudentID string    `gorm:"size:32;uniqueIndex;not null" json:"student_id"`
-	Name      string    `gorm:"size:64;not null" json:"name"`
-	ClassID   uuid.UUID `gorm:"type:uuid;not null" json:"class_id"`
-	Grade     string    `gorm:"size:16;not null" json:"grade"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID               uuid.UUID `gorm:"type:uuid;primaryKey" json:"id"`
+	StudentID        string    `gorm:"size:32;uniqueIndex;not null" json:"student_id"`
+	Name             string    `gorm:"size:64;not null" json:"name"`
+	ClassID          uuid.UUID `gorm:"type:uuid;not null" json:"class_id"`
+	Grade            string    `gorm:"size:16;not null" json:"grade"`
+	GuardianName     string    `gorm:"size:64" json:"guardian_name"`
+	GuardianPhone    string    `gorm:"size:32;index" json:"guardian_phone"`
+	GuardianRelation string    `gorm:"size:32" json:"guardian_relation"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
 }
 
 func (s *Student) BeforeCreate(_ *gorm.DB) error {

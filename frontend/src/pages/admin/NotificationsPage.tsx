@@ -1,39 +1,24 @@
 import { ReloadOutlined } from "@ant-design/icons";
-import {
-  Button,
-  Card,
-  Form,
-  Input,
-  message,
-  Select,
-  Space,
-  Table,
-  Tag,
-  Typography,
-} from "antd";
+import { Button, Card, Form, Input, message, Select, Space, Table, Tag, Typography } from "antd";
 import type { ColumnsType, TablePaginationConfig } from "antd/es/table";
 import { useCallback, useEffect, useState } from "react";
+import { getErrorMessage } from "@/shared/api/helpers";
 import {
+  type DispatchScenarioNotificationPayload,
   dispatchScenarioNotification,
   listNotificationLogs,
-  sendNotification,
-  type NotificationLog,
+  listOutboundCalls,
+  listStudentContacts,
   type NotificationChannel,
+  type NotificationLog,
   type NotificationScenario,
-  type DispatchScenarioNotificationPayload,
+  type OutboundCall,
+  retryOutboundCall,
   type SendNotificationPayload,
+  type StudentContact,
+  sendNotification,
+  updateStudentContact,
 } from "@/shared/api/notifications";
-import { getErrorMessage } from "@/shared/api/helpers";
-
-type NotificationLogRow = {
-  id: string;
-  channel: string;
-  status: string;
-  receiver: string;
-  message: string;
-  sentAt: string;
-  error: string;
-};
 
 type NotificationForm = {
   channel: NotificationChannel;
@@ -51,7 +36,15 @@ type ScenarioNotificationForm = {
   note?: string;
 };
 
-function formatDate(value: string) {
+type ContactForm = {
+  student_id: string;
+  student_name?: string;
+  guardian_name?: string;
+  guardian_phone?: string;
+  guardian_relation?: string;
+};
+
+function formatDate(value?: string) {
   if (!value) {
     return "-";
   }
@@ -62,26 +55,14 @@ function formatDate(value: string) {
   return date.toLocaleString();
 }
 
-function toLogRow(item: NotificationLog): NotificationLogRow {
-  return {
-    id: item.id,
-    channel: item.channel,
-    status: item.status,
-    receiver: item.receiver || "-",
-    message: item.message,
-    sentAt: formatDate(item.sent_at),
-    error: item.error || "-",
-  };
-}
-
 function statusColor(status: string) {
-  if (["success", "sent", "ok"].includes(status)) {
+  if (["success", "sent", "ok", "connected"].includes(status)) {
     return "green";
   }
-  if (["failed", "error"].includes(status)) {
+  if (["failed", "error", "busy", "no_answer", "cancelled"].includes(status)) {
     return "red";
   }
-  if (["pending", "queued", "running"].includes(status)) {
+  if (["pending", "queued", "running", "requested", "processing"].includes(status)) {
     return "blue";
   }
   return "default";
@@ -91,50 +72,106 @@ export function NotificationsPage() {
   const [messageApi, contextHolder] = message.useMessage();
   const [manualForm] = Form.useForm<NotificationForm>();
   const [scenarioForm] = Form.useForm<ScenarioNotificationForm>();
-  const [rows, setRows] = useState<NotificationLogRow[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [contactForm] = Form.useForm<ContactForm>();
+
   const [manualSubmitting, setManualSubmitting] = useState(false);
   const [scenarioSubmitting, setScenarioSubmitting] = useState(false);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
-  const [total, setTotal] = useState(0);
+  const [contactSubmitting, setContactSubmitting] = useState(false);
+  const [retryingId, setRetryingId] = useState<string | null>(null);
+
+  const [logs, setLogs] = useState<NotificationLog[]>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [logPage, setLogPage] = useState(1);
+  const [logPageSize, setLogPageSize] = useState(10);
+  const [logTotal, setLogTotal] = useState(0);
+
+  const [contacts, setContacts] = useState<StudentContact[]>([]);
+  const [contactsLoading, setContactsLoading] = useState(false);
+  const [contactKeyword, setContactKeyword] = useState("");
+  const [contactPage, setContactPage] = useState(1);
+  const [contactPageSize, setContactPageSize] = useState(10);
+  const [contactTotal, setContactTotal] = useState(0);
+
+  const [calls, setCalls] = useState<OutboundCall[]>([]);
+  const [callsLoading, setCallsLoading] = useState(false);
+  const [callKeyword, setCallKeyword] = useState("");
+  const [callStatus, setCallStatus] = useState<string | undefined>(undefined);
+  const [callPage, setCallPage] = useState(1);
+  const [callPageSize, setCallPageSize] = useState(10);
+  const [callTotal, setCallTotal] = useState(0);
 
   const fetchLogs = useCallback(
-    async (targetPage: number, targetPageSize: number) => {
-      setLoading(true);
+    async (page: number, pageSize: number) => {
+      setLogsLoading(true);
       try {
-        const data = await listNotificationLogs({ page: targetPage, pageSize: targetPageSize });
-        setRows(data.items.map(toLogRow));
-        setPage(data.page || targetPage);
-        setPageSize(data.page_size || targetPageSize);
-        setTotal(data.total);
+        const data = await listNotificationLogs({ page, pageSize });
+        setLogs(data.items);
+        setLogPage(data.page || page);
+        setLogPageSize(data.page_size || pageSize);
+        setLogTotal(data.total);
       } catch (error) {
-        messageApi.error(getErrorMessage(error, "消息日志获取失败"));
+        messageApi.error(getErrorMessage(error, "获取通知日志失败"));
       } finally {
-        setLoading(false);
+        setLogsLoading(false);
+      }
+    },
+    [messageApi],
+  );
+
+  const fetchContacts = useCallback(
+    async (page: number, pageSize: number, keyword: string) => {
+      setContactsLoading(true);
+      try {
+        const data = await listStudentContacts({ page, pageSize, keyword });
+        setContacts(data.items);
+        setContactPage(data.page || page);
+        setContactPageSize(data.page_size || pageSize);
+        setContactTotal(data.total);
+      } catch (error) {
+        messageApi.error(getErrorMessage(error, "获取家长联系人失败"));
+      } finally {
+        setContactsLoading(false);
+      }
+    },
+    [messageApi],
+  );
+
+  const fetchCalls = useCallback(
+    async (page: number, pageSize: number, status?: string, keyword?: string) => {
+      setCallsLoading(true);
+      try {
+        const data = await listOutboundCalls({ page, pageSize, status, keyword });
+        setCalls(data.items);
+        setCallPage(data.page || page);
+        setCallPageSize(data.page_size || pageSize);
+        setCallTotal(data.total);
+      } catch (error) {
+        messageApi.error(getErrorMessage(error, "获取智能外呼失败"));
+      } finally {
+        setCallsLoading(false);
       }
     },
     [messageApi],
   );
 
   useEffect(() => {
-    void fetchLogs(page, pageSize);
-  }, [fetchLogs, page, pageSize]);
+    void fetchLogs(logPage, logPageSize);
+  }, [fetchLogs, logPage, logPageSize]);
 
-  const notifyAndRefresh = async (
-    action: () => Promise<unknown>,
-    successText: string,
-    failureText: string,
-    onSuccess?: () => void,
-  ) => {
-    try {
-      await action();
-      messageApi.success(successText);
-      onSuccess?.();
-      await fetchLogs(1, pageSize);
-    } catch (error) {
-      messageApi.error(getErrorMessage(error, failureText));
-    }
+  useEffect(() => {
+    void fetchContacts(contactPage, contactPageSize, contactKeyword);
+  }, [contactKeyword, contactPage, contactPageSize, fetchContacts]);
+
+  useEffect(() => {
+    void fetchCalls(callPage, callPageSize, callStatus, callKeyword);
+  }, [callKeyword, callPage, callPageSize, callStatus, fetchCalls]);
+
+  const refreshAll = async () => {
+    await Promise.all([
+      fetchLogs(logPage, logPageSize),
+      fetchContacts(contactPage, contactPageSize, contactKeyword),
+      fetchCalls(callPage, callPageSize, callStatus, callKeyword),
+    ]);
   };
 
   const handleSend = async (values: NotificationForm) => {
@@ -146,12 +183,12 @@ export function NotificationsPage() {
 
     setManualSubmitting(true);
     try {
-      await notifyAndRefresh(
-        () => sendNotification(payload),
-        "消息发送成功",
-        "消息发送失败",
-        () => manualForm.resetFields(),
-      );
+      await sendNotification(payload);
+      messageApi.success("通知发送成功");
+      manualForm.resetFields();
+      await fetchLogs(1, logPageSize);
+    } catch (error) {
+      messageApi.error(getErrorMessage(error, "通知发送失败"));
     } finally {
       setManualSubmitting(false);
     }
@@ -170,21 +207,53 @@ export function NotificationsPage() {
 
     setScenarioSubmitting(true);
     try {
-      await notifyAndRefresh(
-        () => dispatchScenarioNotification(payload),
-        "场景化推送发送成功",
-        "场景化推送发送失败",
-        () => scenarioForm.resetFields(),
-      );
+      await dispatchScenarioNotification(payload);
+      messageApi.success("场景通知发送成功");
+      scenarioForm.resetFields();
+      await fetchLogs(1, logPageSize);
+    } catch (error) {
+      messageApi.error(getErrorMessage(error, "场景通知发送失败"));
     } finally {
       setScenarioSubmitting(false);
     }
   };
 
-  const columns: ColumnsType<NotificationLogRow> = [
+  const handleUpdateContact = async (values: ContactForm) => {
+    setContactSubmitting(true);
+    try {
+      await updateStudentContact(values.student_id.trim(), {
+        student_name: values.student_name?.trim() || undefined,
+        guardian_name: values.guardian_name?.trim() || undefined,
+        guardian_phone: values.guardian_phone?.trim() || undefined,
+        guardian_relation: values.guardian_relation?.trim() || undefined,
+      });
+      messageApi.success("家长联系人已保存");
+      contactForm.resetFields();
+      await fetchContacts(1, contactPageSize, contactKeyword);
+    } catch (error) {
+      messageApi.error(getErrorMessage(error, "保存家长联系人失败"));
+    } finally {
+      setContactSubmitting(false);
+    }
+  };
+
+  const handleRetryCall = async (id: string) => {
+    setRetryingId(id);
+    try {
+      await retryOutboundCall(id);
+      messageApi.success("外呼已重新发起");
+      await fetchCalls(1, callPageSize, callStatus, callKeyword);
+    } catch (error) {
+      messageApi.error(getErrorMessage(error, "重试外呼失败"));
+    } finally {
+      setRetryingId(null);
+    }
+  };
+
+  const notificationColumns: ColumnsType<NotificationLog> = [
     { title: "日志 ID", dataIndex: "id", width: 200 },
     {
-      title: "通道",
+      title: "渠道",
       dataIndex: "channel",
       width: 120,
       render: (value: string) => <Tag>{value}</Tag>,
@@ -195,33 +264,112 @@ export function NotificationsPage() {
       width: 120,
       render: (value: string) => <Tag color={statusColor(value)}>{value}</Tag>,
     },
-    { title: "接收人", dataIndex: "receiver", width: 220 },
+    { title: "接收人", dataIndex: "receiver", width: 200, render: (value: string) => value || "-" },
     { title: "消息内容", dataIndex: "message" },
-    { title: "发送时间", dataIndex: "sentAt", width: 180 },
-    { title: "错误", dataIndex: "error", width: 220 },
+    {
+      title: "发送时间",
+      dataIndex: "sent_at",
+      width: 180,
+      render: (value: string) => formatDate(value),
+    },
+    { title: "错误", dataIndex: "error", width: 220, render: (value?: string) => value || "-" },
+  ];
+
+  const contactColumns: ColumnsType<StudentContact> = [
+    { title: "学号", dataIndex: "student_id", width: 140 },
+    {
+      title: "学生姓名",
+      dataIndex: "student_name",
+      width: 160,
+      render: (value: string) => value || "-",
+    },
+    {
+      title: "家长姓名",
+      dataIndex: "guardian_name",
+      width: 160,
+      render: (value: string) => value || "-",
+    },
+    {
+      title: "手机号",
+      dataIndex: "guardian_phone",
+      width: 180,
+      render: (value: string) => value || "-",
+    },
+    {
+      title: "关系",
+      dataIndex: "guardian_relation",
+      width: 120,
+      render: (value: string) => value || "-",
+    },
+  ];
+
+  const callColumns: ColumnsType<OutboundCall> = [
+    { title: "外呼 ID", dataIndex: "id", width: 200 },
+    { title: "学号", dataIndex: "student_id", width: 140 },
+    { title: "学生", dataIndex: "student_name", width: 120 },
+    {
+      title: "家长",
+      dataIndex: "guardian_name",
+      width: 120,
+      render: (value: string) => value || "-",
+    },
+    { title: "手机号", dataIndex: "guardian_phone", width: 160 },
+    {
+      title: "状态",
+      dataIndex: "status",
+      width: 120,
+      render: (value: string) => <Tag color={statusColor(value)}>{value}</Tag>,
+    },
+    {
+      title: "供应商",
+      dataIndex: "provider",
+      width: 100,
+      render: (value: string) => <Tag>{value}</Tag>,
+    },
+    { title: "触发方式", dataIndex: "trigger_source", width: 100 },
+    {
+      title: "请求时间",
+      dataIndex: "requested_at",
+      width: 180,
+      render: (value: string) => formatDate(value),
+    },
+    { title: "错误原因", dataIndex: "error", width: 220, render: (value?: string) => value || "-" },
+    {
+      title: "操作",
+      key: "actions",
+      width: 120,
+      render: (_, record) => (
+        <Button
+          size="small"
+          onClick={() => void handleRetryCall(record.id)}
+          loading={retryingId === record.id}
+        >
+          重试外呼
+        </Button>
+      ),
+    },
   ];
 
   return (
     <Space direction="vertical" size={16} style={{ width: "100%" }}>
       {contextHolder}
-      <Typography.Title level={3} style={{ marginBottom: 0 }}>
-        消息通知中心
-      </Typography.Title>
 
-      <Card
-        title="发送通知（WeChat / DingTalk）"
-        extra={
-          <Button icon={<ReloadOutlined />} onClick={() => void fetchLogs(page, pageSize)}>
-            刷新日志
-          </Button>
-        }
-      >
+      <Space style={{ width: "100%", justifyContent: "space-between" }} align="center">
+        <Typography.Title level={3} style={{ marginBottom: 0 }}>
+          消息通知与智能外呼
+        </Typography.Title>
+        <Button icon={<ReloadOutlined />} onClick={() => void refreshAll()}>
+          刷新全部
+        </Button>
+      </Space>
+
+      <Card title="发送通知（WeChat / DingTalk）">
         <Form layout="vertical" form={manualForm} onFinish={(values) => void handleSend(values)}>
           <Space align="start" wrap>
             <Form.Item
-              label="发送通道"
+              label="发送渠道"
               name="channel"
-              rules={[{ required: true, message: "请选择发送通道" }]}
+              rules={[{ required: true, message: "请选择发送渠道" }]}
             >
               <Select
                 style={{ width: 160 }}
@@ -231,33 +379,30 @@ export function NotificationsPage() {
                 ]}
               />
             </Form.Item>
-
+            <Form.Item
+              label="接收人"
+              name="receiver"
+              rules={[{ required: true, message: "请输入接收人" }]}
+            >
+              <Input style={{ width: 240 }} placeholder="如：parent_group_1" />
+            </Form.Item>
             <Form.Item
               label="通知内容"
               name="message"
               rules={[{ required: true, message: "请输入通知内容" }]}
             >
-              <Input.TextArea rows={2} style={{ width: 380 }} placeholder="请输入消息内容" />
+              <Input.TextArea rows={2} style={{ width: 380 }} placeholder="请输入通知内容" />
             </Form.Item>
-
-            <Form.Item
-              label="接收人"
-              name="receiver"
-              rules={[{ required: true, message: "请输入接收人标识" }]}
-            >
-              <Input style={{ width: 240 }} placeholder="如：parent_group_1" />
-            </Form.Item>
-
             <Form.Item label=" " style={{ marginBottom: 0 }}>
               <Button htmlType="submit" type="primary" loading={manualSubmitting}>
-                发送
+                发送通知
               </Button>
             </Form.Item>
           </Space>
         </Form>
       </Card>
 
-      <Card title="场景化推送">
+      <Card title="场景通知">
         <Form
           layout="vertical"
           form={scenarioForm}
@@ -265,24 +410,23 @@ export function NotificationsPage() {
         >
           <Space align="start" wrap>
             <Form.Item
-              label="推送场景"
+              label="场景"
               name="scenario"
-              rules={[{ required: true, message: "请选择推送场景" }]}
+              rules={[{ required: true, message: "请选择场景" }]}
             >
               <Select
                 style={{ width: 220 }}
                 options={[
-                  { value: "visit_completed", label: "visit_completed（到访完成）" },
-                  { value: "observation_notice", label: "observation_notice（观察通知）" },
+                  { value: "visit_completed", label: "visit_completed（就诊完成）" },
+                  { value: "observation_notice", label: "observation_notice（留观通知）" },
                   { value: "follow_up_reminder", label: "follow_up_reminder（复诊提醒）" },
                 ]}
               />
             </Form.Item>
-
             <Form.Item
-              label="发送通道"
+              label="发送渠道"
               name="channel"
-              rules={[{ required: true, message: "请选择发送通道" }]}
+              rules={[{ required: true, message: "请选择发送渠道" }]}
             >
               <Select
                 style={{ width: 160 }}
@@ -292,57 +436,174 @@ export function NotificationsPage() {
                 ]}
               />
             </Form.Item>
-
             <Form.Item
               label="接收人"
               name="receiver"
-              rules={[{ required: true, message: "请输入接收人标识" }]}
+              rules={[{ required: true, message: "请输入接收人" }]}
             >
               <Input style={{ width: 220 }} placeholder="如：parent_group_1" />
             </Form.Item>
-
             <Form.Item label="学生姓名" name="student_name">
               <Input style={{ width: 180 }} placeholder="可选" />
             </Form.Item>
-
-            <Form.Item label="目的地" name="destination">
+            <Form.Item label="去向/地点" name="destination">
               <Input style={{ width: 180 }} placeholder="可选" />
             </Form.Item>
-
             <Form.Item label="复诊时间" name="follow_up_at">
-              <Input style={{ width: 220 }} placeholder="可选，如 2026-02-24 09:30" />
+              <Input style={{ width: 220 }} placeholder="可选，如 2026-03-07 14:30" />
             </Form.Item>
-
             <Form.Item label="备注" name="note">
               <Input.TextArea rows={2} style={{ width: 260 }} placeholder="可选" />
             </Form.Item>
-
             <Form.Item label=" " style={{ marginBottom: 0 }}>
               <Button htmlType="submit" type="primary" loading={scenarioSubmitting}>
-                发送场景化推送
+                发送场景通知
               </Button>
             </Form.Item>
           </Space>
         </Form>
       </Card>
 
-      <Card title="发送日志">
+      <Card title="家长联系人维护">
+        <Form
+          layout="vertical"
+          form={contactForm}
+          onFinish={(values) => void handleUpdateContact(values)}
+        >
+          <Space align="start" wrap>
+            <Form.Item
+              label="学号"
+              name="student_id"
+              rules={[{ required: true, message: "请输入学号" }]}
+            >
+              <Input style={{ width: 160 }} placeholder="如：20260001" />
+            </Form.Item>
+            <Form.Item label="学生姓名" name="student_name">
+              <Input style={{ width: 160 }} placeholder="可选" />
+            </Form.Item>
+            <Form.Item label="家长姓名" name="guardian_name">
+              <Input style={{ width: 160 }} placeholder="如：张家长" />
+            </Form.Item>
+            <Form.Item
+              label="家长手机号"
+              name="guardian_phone"
+              rules={[{ required: true, message: "请输入手机号" }]}
+            >
+              <Input style={{ width: 180 }} placeholder="如：13800000001" />
+            </Form.Item>
+            <Form.Item label="关系" name="guardian_relation">
+              <Input style={{ width: 120 }} placeholder="如：父亲" />
+            </Form.Item>
+            <Form.Item label=" " style={{ marginBottom: 0 }}>
+              <Button htmlType="submit" type="primary" loading={contactSubmitting}>
+                保存联系人
+              </Button>
+            </Form.Item>
+          </Space>
+        </Form>
+
+        <Space style={{ marginBottom: 16, marginTop: 8 }}>
+          <Input.Search
+            allowClear
+            placeholder="搜索学号/学生/家长/手机号"
+            style={{ width: 280 }}
+            onSearch={(value) => {
+              setContactPage(1);
+              setContactKeyword(value.trim());
+            }}
+          />
+        </Space>
+
         <Table
-          rowKey="id"
-          columns={columns}
-          dataSource={rows}
-          loading={loading}
+          rowKey="student_id"
+          columns={contactColumns}
+          dataSource={contacts}
+          loading={contactsLoading}
           pagination={
             {
-              current: page,
-              pageSize,
-              total,
+              current: contactPage,
+              pageSize: contactPageSize,
+              total: contactTotal,
               showSizeChanger: true,
-              onChange: (targetPage: number, targetPageSize: number) => {
-                setPage(targetPage);
-                setPageSize(targetPageSize);
+              onChange: (page: number, pageSize: number) => {
+                setContactPage(page);
+                setContactPageSize(pageSize);
               },
-            } as TablePaginationConfig
+            } satisfies TablePaginationConfig
+          }
+          scroll={{ x: 900 }}
+        />
+      </Card>
+
+      <Card title="智能外呼追踪">
+        <Space style={{ marginBottom: 16 }} wrap>
+          <Select
+            allowClear
+            placeholder="按状态筛选"
+            style={{ width: 180 }}
+            value={callStatus}
+            onChange={(value) => {
+              setCallPage(1);
+              setCallStatus(value);
+            }}
+            options={[
+              { value: "requested", label: "requested" },
+              { value: "connected", label: "connected" },
+              { value: "failed", label: "failed" },
+              { value: "busy", label: "busy" },
+              { value: "no_answer", label: "no_answer" },
+              { value: "cancelled", label: "cancelled" },
+            ]}
+          />
+          <Input.Search
+            allowClear
+            placeholder="搜索学号/学生/家长/手机号"
+            style={{ width: 280 }}
+            onSearch={(value) => {
+              setCallPage(1);
+              setCallKeyword(value.trim());
+            }}
+          />
+        </Space>
+
+        <Table
+          rowKey="id"
+          columns={callColumns}
+          dataSource={calls}
+          loading={callsLoading}
+          pagination={
+            {
+              current: callPage,
+              pageSize: callPageSize,
+              total: callTotal,
+              showSizeChanger: true,
+              onChange: (page: number, pageSize: number) => {
+                setCallPage(page);
+                setCallPageSize(pageSize);
+              },
+            } satisfies TablePaginationConfig
+          }
+          scroll={{ x: 1600 }}
+        />
+      </Card>
+
+      <Card title="通知发送日志">
+        <Table
+          rowKey="id"
+          columns={notificationColumns}
+          dataSource={logs}
+          loading={logsLoading}
+          pagination={
+            {
+              current: logPage,
+              pageSize: logPageSize,
+              total: logTotal,
+              showSizeChanger: true,
+              onChange: (page: number, pageSize: number) => {
+                setLogPage(page);
+                setLogPageSize(pageSize);
+              },
+            } satisfies TablePaginationConfig
           }
           scroll={{ x: 1300 }}
         />
@@ -350,4 +611,3 @@ export function NotificationsPage() {
     </Space>
   );
 }
-

@@ -175,3 +175,23 @@ export async function getMonthlyReport(params?: { month?: string }) {
   return parsePeriodReport(response.data, "monthly");
 }
 
+export async function exportReportExcel(period: "daily" | "weekly" | "monthly") {
+  const response = await http.get(`/reports/export/${period}`, {
+    responseType: "blob",
+    timeout: 30000,
+  });
+
+  const disposition = response.headers["content-disposition"] ?? "";
+  const match = disposition.match(/filename="?([^"]+)"?/);
+  const filename = match?.[1] ?? `报表_${period}.xlsx`;
+
+  const url = URL.createObjectURL(response.data as Blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = decodeURIComponent(filename);
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
