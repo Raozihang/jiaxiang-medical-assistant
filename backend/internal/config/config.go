@@ -17,6 +17,20 @@ type Config struct {
 	DataMode string
 	Auth     AuthConfig
 	DB       DBConfig
+	AI       AIConfig
+	Report   ReportConfig
+	Outbound OutboundCallConfig
+}
+
+type AIConfig struct {
+	Provider string
+	APIKey   string
+	Model    string
+	BaseURL  string
+}
+
+type ReportConfig struct {
+	ScheduleRetentionDays int
 }
 
 type AuthConfig struct {
@@ -35,6 +49,18 @@ type DBConfig struct {
 	Password string
 	Name     string
 	SSLMode  string
+}
+
+type OutboundCallConfig struct {
+	Provider               string
+	AliyunAccessKeyID      string
+	AliyunAccessKeySecret  string
+	AliyunRegionID         string
+	AliyunCalledShowNumber string
+	AliyunTTSCode          string
+	AliyunPlayTimes        int
+	AliyunTemplateCode     string
+	AliyunCallbackSecret   string
 }
 
 func (db DBConfig) DSN() string {
@@ -77,6 +103,26 @@ func Load() Config {
 			Name:     getEnv("DB_NAME", ""),
 			SSLMode:  getEnv("DB_SSLMODE", "disable"),
 		},
+		AI: AIConfig{
+			Provider: getEnv("AI_PROVIDER", "rule"),
+			APIKey:   getEnv("AI_API_KEY", ""),
+			Model:    getEnv("AI_MODEL", "qwen3.5-plus"),
+			BaseURL:  getEnv("AI_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1"),
+		},
+		Report: ReportConfig{
+			ScheduleRetentionDays: getEnvAsInt("REPORT_SCHEDULE_RETENTION_DAYS", 30),
+		},
+		Outbound: OutboundCallConfig{
+			Provider:               strings.ToLower(getEnv("OUTBOUND_CALL_PROVIDER", "mock")),
+			AliyunAccessKeyID:      getEnv("ALIYUN_CALL_ACCESS_KEY_ID", ""),
+			AliyunAccessKeySecret:  getEnv("ALIYUN_CALL_ACCESS_KEY_SECRET", ""),
+			AliyunRegionID:         getEnv("ALIYUN_CALL_REGION_ID", "cn-hangzhou"),
+			AliyunCalledShowNumber: getEnv("ALIYUN_CALL_CALLED_SHOW_NUMBER", ""),
+			AliyunTTSCode:          getEnv("ALIYUN_CALL_TTS_CODE", ""),
+			AliyunPlayTimes:        getEnvAsInt("ALIYUN_CALL_PLAY_TIMES", 2),
+			AliyunTemplateCode:     getEnv("ALIYUN_CALL_TEMPLATE_CODE", "external_medical_followup"),
+			AliyunCallbackSecret:   getEnv("ALIYUN_CALL_CALLBACK_SECRET", ""),
+		},
 	}
 }
 
@@ -87,26 +133,26 @@ func (c Config) Validate() error {
 func (c AuthConfig) Validate() error {
 	jwtSecret := strings.TrimSpace(c.JWTSecret)
 	if jwtSecret == "" {
-		return errors.New("AUTH_JWT_SECRET is required")
+		return errors.New("AUTH_JWT_SECRET 不能为空")
 	}
 	if jwtSecret == "replace-with-a-long-random-secret" {
-		return errors.New("AUTH_JWT_SECRET must be replaced from placeholder")
+		return errors.New("AUTH_JWT_SECRET 必须替换为自定义值")
 	}
 
 	doctorAccount := strings.TrimSpace(c.DoctorAccount)
 	adminAccount := strings.TrimSpace(c.AdminAccount)
 	if doctorAccount == "" || adminAccount == "" {
-		return errors.New("AUTH_DOCTOR_ACCOUNT and AUTH_ADMIN_ACCOUNT are required")
+		return errors.New("AUTH_DOCTOR_ACCOUNT 和 AUTH_ADMIN_ACCOUNT 不能为空")
 	}
 	if doctorAccount == adminAccount {
-		return errors.New("AUTH_DOCTOR_ACCOUNT and AUTH_ADMIN_ACCOUNT must be different")
+		return errors.New("AUTH_DOCTOR_ACCOUNT 和 AUTH_ADMIN_ACCOUNT 不能相同")
 	}
 
 	if isUnsafePassword(c.DoctorPassword, "replace-with-doctor-password") {
-		return errors.New("AUTH_DOCTOR_PASSWORD must be changed to a non-default value")
+		return errors.New("AUTH_DOCTOR_PASSWORD 必须设置为非默认值")
 	}
 	if isUnsafePassword(c.AdminPassword, "replace-with-admin-password") {
-		return errors.New("AUTH_ADMIN_PASSWORD must be changed to a non-default value")
+		return errors.New("AUTH_ADMIN_PASSWORD 必须设置为非默认值")
 	}
 
 	return nil

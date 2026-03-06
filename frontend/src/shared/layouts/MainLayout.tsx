@@ -1,4 +1,4 @@
-import type { MenuProps } from "antd";
+﻿import type { MenuProps } from "antd";
 import { Layout, Menu, Typography } from "antd";
 import { useMemo } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
@@ -11,6 +11,7 @@ const menuItems: MenuProps["items"] = [
   { key: "/doctor/visits", label: "Visit Queue" },
   { key: "/doctor/medicines", label: "Medicine Inventory" },
   { key: "/admin/dashboard", label: "Dashboard" },
+  { key: "/admin/notifications", label: "Smart Outbound" },
 ];
 
 function getSelectedKey(pathname: string) {

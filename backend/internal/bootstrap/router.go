@@ -2,7 +2,9 @@ package bootstrap
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jiaxiang-medical-assistant/backend/internal/config"
@@ -15,10 +17,23 @@ import (
 
 func registerRoutes(engine *gin.Engine, cfg config.Config, db *gorm.DB) error {
 	dataMode := cfg.ResolveDataMode(db != nil)
-	visitRepo, medicineRepo := buildRepositories(dataMode, db)
+	visitRepo, medicineRepo, studentContactRepo, outboundCallRepo := buildRepositories(dataMode, db)
 
-	visitService := service.NewVisitService(visitRepo)
+	outboundProvider, err := buildOutboundCallProvider(cfg)
+	if err != nil {
+		return err
+	}
+
+	outboundCallService := service.NewOutboundCallService(
+		outboundCallRepo,
+		visitRepo,
+		studentContactRepo,
+		outboundProvider,
+		cfg.Outbound.AliyunTemplateCode,
+	)
+	visitService := service.NewVisitService(visitRepo, outboundCallService)
 	medicineService := service.NewMedicineService(medicineRepo)
+	studentContactService := service.NewStudentContactService(studentContactRepo)
 	reportService := service.NewReportService(visitRepo, medicineRepo)
 	authService, err := service.NewAuthService(cfg, dataMode)
 	if err != nil {
@@ -37,14 +52,16 @@ func registerRoutes(engine *gin.Engine, cfg config.Config, db *gorm.DB) error {
 	authHandler := handler.NewAuthHandler(authService)
 	visitHandler := handler.NewVisitHandler(visitService)
 	medicineHandler := handler.NewMedicineHandler(medicineService)
+	studentContactHandler := handler.NewStudentContactHandler(studentContactService)
+	outboundCallHandler := handler.NewOutboundCallHandler(outboundCallService, cfg.Outbound.AliyunCallbackSecret)
 	reportHandler := handler.NewReportHandler(reportService)
 
 	api := engine.Group("/api/v1")
 	{
 		api.GET("/healthz", healthHandler.Healthz)
 		api.POST("/auth/login", authHandler.Login)
-
 		api.POST("/visits", visitHandler.Create)
+		api.POST("/outbound-calls/callback/aliyun", outboundCallHandler.AliyunCallback)
 
 		protected := api.Group("")
 		protected.Use(middleware.AuthRequired(authService))
@@ -57,6 +74,12 @@ func registerRoutes(engine *gin.Engine, cfg config.Config, db *gorm.DB) error {
 			protected.POST("/medicines/inbound", medicineHandler.Inbound)
 			protected.POST("/medicines/outbound", medicineHandler.Outbound)
 
+			protected.GET("/students/contacts", studentContactHandler.List)
+			protected.PUT("/students/:studentId/contact", studentContactHandler.Update)
+
+			protected.GET("/outbound-calls", outboundCallHandler.List)
+			protected.POST("/outbound-calls/:id/retry", outboundCallHandler.Retry)
+
 			protected.GET("/reports/overview", reportHandler.Overview)
 		}
 	}
@@ -64,10 +87,21 @@ func registerRoutes(engine *gin.Engine, cfg config.Config, db *gorm.DB) error {
 	return nil
 }
 
-func buildRepositories(dataMode string, db *gorm.DB) (repository.VisitRepository, repository.MedicineRepository) {
+func buildRepositories(dataMode string, db *gorm.DB) (repository.VisitRepository, repository.MedicineRepository, repository.StudentContactRepository, repository.OutboundCallRepository) {
 	if dataMode == "db" && db != nil {
-		return repository.NewGormVisitRepository(db), repository.NewGormMedicineRepository(db)
+		return repository.NewGormVisitRepository(db), repository.NewGormMedicineRepository(db), repository.NewGormStudentContactRepository(db), repository.NewGormOutboundCallRepository(db)
 	}
 
-	return repository.NewMockVisitRepository(), repository.NewMockMedicineRepository()
+	return repository.NewMockVisitRepository(), repository.NewMockMedicineRepository(), repository.NewMemoryStudentContactRepository(), repository.NewMemoryOutboundCallRepository()
+}
+
+func buildOutboundCallProvider(cfg config.Config) (service.OutboundCallProvider, error) {
+	switch strings.ToLower(strings.TrimSpace(cfg.Outbound.Provider)) {
+	case "", "mock":
+		return service.NewMockOutboundCallProvider(), nil
+	case "aliyun":
+		return service.NewAliyunOutboundCallProvider(cfg.Outbound)
+	default:
+		return nil, fmt.Errorf("unsupported outbound call provider: %s", cfg.Outbound.Provider)
+	}
 }
