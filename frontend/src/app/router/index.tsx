@@ -1,5 +1,6 @@
-﻿import { createBrowserRouter, Navigate, Outlet } from "react-router-dom";
+import { createBrowserRouter, Navigate, Outlet } from "react-router-dom";
 import { DashboardPage } from "@/pages/admin/DashboardPage";
+import { ImportsPage } from "@/pages/admin/ImportsPage";
 import { NotificationsPage } from "@/pages/admin/NotificationsPage";
 import { LoginPage } from "@/pages/auth/LoginPage";
 import { ForbiddenPage } from "@/pages/ForbiddenPage";
@@ -79,6 +80,7 @@ export const router = createBrowserRouter([
             element: <RequireRole role="admin" />,
             children: [
               { path: "/admin/dashboard", element: <DashboardPage /> },
+              { path: "/admin/imports", element: <ImportsPage /> },
               { path: "/admin/notifications", element: <NotificationsPage /> },
             ],
           },
