@@ -11,7 +11,7 @@ const theme = {
     colorInfo: "#0ea5e9",
     borderRadius: 10,
     fontFamily:
-      "'Inter', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif",
+      "'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif",
     fontSize: 14,
     colorBgLayout: "#f0f5f9",
     controlHeight: 38,

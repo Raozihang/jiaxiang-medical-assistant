@@ -31,22 +31,22 @@ export function DashboardPage() {
         管理仪表盘
       </Typography.Title>
       <Row gutter={[16, 16]}>
-        <Col span={6}>
+        <Col xs={24} sm={12} md={12} lg={6}>
           <Card loading={loading}>
             <Statistic title="今日就诊" value={report.today_visits} />
           </Card>
         </Col>
-        <Col span={6}>
+        <Col xs={24} sm={12} md={12} lg={6}>
           <Card loading={loading}>
             <Statistic title="留观学生" value={report.observation_students} />
           </Card>
         </Col>
-        <Col span={6}>
+        <Col xs={24} sm={12} md={12} lg={6}>
           <Card loading={loading}>
             <Statistic title="库存预警" value={report.stock_warnings} />
           </Card>
         </Col>
-        <Col span={6}>
+        <Col xs={24} sm={12} md={12} lg={6}>
           <Card loading={loading}>
             <Statistic title="待复诊" value={report.due_follow_ups} />
           </Card>

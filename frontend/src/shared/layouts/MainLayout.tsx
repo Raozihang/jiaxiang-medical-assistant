@@ -35,6 +35,11 @@ function getSelectedKey(pathname: string) {
   return pathname;
 }
 
+const roleLabels: Record<UserRole, string> = {
+  admin: "管理员",
+  doctor: "医生",
+};
+
 export function MainLayout() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -48,7 +53,7 @@ export function MainLayout() {
       .map((item) => ({ key: item.key, label: item.label }));
   }, [currentRole]);
 
-  const handleSwitchAccount = () => {
+  const handleLogout = () => {
     clearAuth();
     navigate("/login", { replace: true });
   };
@@ -73,9 +78,9 @@ export function MainLayout() {
             {currentUser ? (
               <Space size={12}>
                 <Typography.Text>{currentUser.name}</Typography.Text>
-                <Tag color={currentUser.role === "admin" ? "purple" : "blue"}>{currentUser.role}</Tag>
-                <Button size="small" onClick={handleSwitchAccount}>
-                  切换账号
+                <Tag color={currentUser.role === "admin" ? "purple" : "blue"}>{roleLabels[currentUser.role]}</Tag>
+                <Button size="small" onClick={handleLogout}>
+                  退出登录
                 </Button>
               </Space>
             ) : (

@@ -36,7 +36,7 @@ export function CheckInPage() {
       </Typography.Title>
       <Card>
         <Form layout="vertical" form={form} onFinish={(values) => void handleSubmit(values)}>
-          <Form.Item label="学号" name="studentId" rules={[{ required: true }]}>
+          <Form.Item label="学号" name="studentId" rules={[{ required: true, message: "请输入学号" }]}>
             <Input placeholder="请输入学号" />
           </Form.Item>
           <Form.Item label="症状" name="symptoms">
