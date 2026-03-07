@@ -115,6 +115,8 @@ func handleDomainError(c *gin.Context, err error) {
 		response.Fail(c, http.StatusNotFound, 2001, "resource not found")
 	case errors.Is(err, repository.ErrInsufficientStock):
 		response.Fail(c, http.StatusBadRequest, 3001, "insufficient stock")
+	case errors.Is(err, service.ErrInvalidInput):
+		response.Fail(c, http.StatusBadRequest, 1001, "invalid request body")
 	default:
 		response.Fail(c, http.StatusInternalServerError, 5000, "internal error")
 	}

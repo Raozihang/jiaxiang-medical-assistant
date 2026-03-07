@@ -22,7 +22,7 @@ func InitDatabase(cfg config.Config) (*gorm.DB, func()) {
 		return nil, func() {}
 	}
 
-	if err := db.AutoMigrate(&model.Student{}, &model.Visit{}, &model.Medicine{}); err != nil {
+	if err := db.AutoMigrate(&model.Student{}, &model.Visit{}, &model.Medicine{}, &model.OutboundCall{}); err != nil {
 		log.Printf("database migration failed: %v", err)
 	}
 
