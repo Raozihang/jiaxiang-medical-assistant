@@ -1,25 +1,89 @@
-﻿import { createBrowserRouter, Navigate } from "react-router-dom";
+﻿import { createBrowserRouter, Navigate, Outlet } from "react-router-dom";
 import { DashboardPage } from "@/pages/admin/DashboardPage";
 import { NotificationsPage } from "@/pages/admin/NotificationsPage";
+import { LoginPage } from "@/pages/auth/LoginPage";
+import { ForbiddenPage } from "@/pages/ForbiddenPage";
 import { MedicinesPage } from "@/pages/doctor/MedicinesPage";
 import { VisitDetailPage } from "@/pages/doctor/VisitDetailPage";
 import { VisitsPage } from "@/pages/doctor/VisitsPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 import { CheckInPage } from "@/pages/student/CheckInPage";
+import {
+  getStoredUser,
+  hasValidSession,
+  resolveHomePath,
+  type UserRole,
+} from "@/shared/auth/session";
 import { MainLayout } from "@/shared/layouts/MainLayout";
 
+function HomeRedirect() {
+  if (!hasValidSession()) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <Navigate to={resolveHomePath(getStoredUser()?.role)} replace />;
+}
+
+function PublicOnly() {
+  if (hasValidSession()) {
+    return <Navigate to={resolveHomePath(getStoredUser()?.role)} replace />;
+  }
+
+  return <Outlet />;
+}
+
+function RequireAuth() {
+  if (!hasValidSession()) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <Outlet />;
+}
+
+function RequireRole({ role }: { role: UserRole }) {
+  const user = getStoredUser();
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+  if (user.role !== role) {
+    return <Navigate to="/forbidden" replace />;
+  }
+
+  return <Outlet />;
+}
+
 export const router = createBrowserRouter([
+  {
+    element: <PublicOnly />,
+    children: [{ path: "/login", element: <LoginPage /> }],
+  },
   {
     path: "/",
     element: <MainLayout />,
     children: [
-      { index: true, element: <Navigate to="/doctor/visits" replace /> },
+      { index: true, element: <HomeRedirect /> },
       { path: "/student/checkin", element: <CheckInPage /> },
-      { path: "/doctor/visits", element: <VisitsPage /> },
-      { path: "/doctor/visit/:id", element: <VisitDetailPage /> },
-      { path: "/doctor/medicines", element: <MedicinesPage /> },
-      { path: "/admin/dashboard", element: <DashboardPage /> },
-      { path: "/admin/notifications", element: <NotificationsPage /> },
+      { path: "/forbidden", element: <ForbiddenPage /> },
+      {
+        element: <RequireAuth />,
+        children: [
+          {
+            element: <RequireRole role="doctor" />,
+            children: [
+              { path: "/doctor/visits", element: <VisitsPage /> },
+              { path: "/doctor/visit/:id", element: <VisitDetailPage /> },
+              { path: "/doctor/medicines", element: <MedicinesPage /> },
+            ],
+          },
+          {
+            element: <RequireRole role="admin" />,
+            children: [
+              { path: "/admin/dashboard", element: <DashboardPage /> },
+              { path: "/admin/notifications", element: <NotificationsPage /> },
+            ],
+          },
+        ],
+      },
     ],
   },
   { path: "*", element: <NotFoundPage /> },
