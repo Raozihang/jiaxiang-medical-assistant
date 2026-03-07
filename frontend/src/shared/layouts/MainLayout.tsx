@@ -1,4 +1,4 @@
-﻿import type { MenuProps } from "antd";
+import type { MenuProps } from "antd";
 import { Button, Layout, Menu, Space, Tag, Typography } from "antd";
 import { useMemo } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
@@ -20,6 +20,7 @@ const allMenuItems: AppMenuItem[] = [
   { key: "/doctor/visits", label: "Visit Queue", visibleRoles: ["doctor"] },
   { key: "/doctor/medicines", label: "Medicine Inventory", visibleRoles: ["doctor"] },
   { key: "/admin/dashboard", label: "Dashboard", visibleRoles: ["admin"] },
+  { key: "/admin/imports", label: "Visit Imports", visibleRoles: ["admin"] },
   { key: "/admin/notifications", label: "Smart Outbound", visibleRoles: ["admin"] },
 ];
 

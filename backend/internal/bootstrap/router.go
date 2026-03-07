@@ -17,7 +17,7 @@ import (
 
 func registerRoutes(engine *gin.Engine, cfg config.Config, db *gorm.DB) error {
 	dataMode := cfg.ResolveDataMode(db != nil)
-	visitRepo, medicineRepo, studentContactRepo, outboundCallRepo := buildRepositories(dataMode, db)
+	visitRepo, medicineRepo, studentContactRepo, outboundCallRepo, importTaskRepo := buildRepositories(dataMode, db)
 
 	outboundProvider, err := buildOutboundCallProvider(cfg)
 	if err != nil {
@@ -34,6 +34,7 @@ func registerRoutes(engine *gin.Engine, cfg config.Config, db *gorm.DB) error {
 	visitService := service.NewVisitService(visitRepo, outboundCallService)
 	medicineService := service.NewMedicineService(medicineRepo)
 	studentContactService := service.NewStudentContactService(studentContactRepo)
+	importService := service.NewImportService(visitRepo, importTaskRepo)
 	reportService := service.NewReportService(visitRepo, medicineRepo)
 	authService, err := service.NewAuthService(cfg, dataMode)
 	if err != nil {
@@ -53,6 +54,7 @@ func registerRoutes(engine *gin.Engine, cfg config.Config, db *gorm.DB) error {
 	visitHandler := handler.NewVisitHandler(visitService)
 	medicineHandler := handler.NewMedicineHandler(medicineService)
 	studentContactHandler := handler.NewStudentContactHandler(studentContactService)
+	importHandler := handler.NewImportHandler(importService)
 	outboundCallHandler := handler.NewOutboundCallHandler(outboundCallService, cfg.Outbound.AliyunCallbackSecret)
 	reportHandler := handler.NewReportHandler(reportService)
 
@@ -74,6 +76,10 @@ func registerRoutes(engine *gin.Engine, cfg config.Config, db *gorm.DB) error {
 			protected.POST("/medicines/inbound", medicineHandler.Inbound)
 			protected.POST("/medicines/outbound", medicineHandler.Outbound)
 
+			protected.POST("/import/visits", importHandler.ImportVisits)
+			protected.GET("/import/tasks", importHandler.TaskList)
+			protected.GET("/import/tasks/:id", importHandler.TaskDetail)
+
 			protected.GET("/students/contacts", studentContactHandler.List)
 			protected.PUT("/students/:studentId/contact", studentContactHandler.Update)
 
@@ -87,12 +93,12 @@ func registerRoutes(engine *gin.Engine, cfg config.Config, db *gorm.DB) error {
 	return nil
 }
 
-func buildRepositories(dataMode string, db *gorm.DB) (repository.VisitRepository, repository.MedicineRepository, repository.StudentContactRepository, repository.OutboundCallRepository) {
+func buildRepositories(dataMode string, db *gorm.DB) (repository.VisitRepository, repository.MedicineRepository, repository.StudentContactRepository, repository.OutboundCallRepository, repository.ImportTaskRepository) {
 	if dataMode == "db" && db != nil {
-		return repository.NewGormVisitRepository(db), repository.NewGormMedicineRepository(db), repository.NewGormStudentContactRepository(db), repository.NewGormOutboundCallRepository(db)
+		return repository.NewGormVisitRepository(db), repository.NewGormMedicineRepository(db), repository.NewGormStudentContactRepository(db), repository.NewGormOutboundCallRepository(db), repository.NewGormImportTaskRepository(db)
 	}
 
-	return repository.NewMockVisitRepository(), repository.NewMockMedicineRepository(), repository.NewMemoryStudentContactRepository(), repository.NewMemoryOutboundCallRepository()
+	return repository.NewMockVisitRepository(), repository.NewMockMedicineRepository(), repository.NewMemoryStudentContactRepository(), repository.NewMemoryOutboundCallRepository(), repository.NewMemoryImportTaskRepository()
 }
 
 func buildOutboundCallProvider(cfg config.Config) (service.OutboundCallProvider, error) {
