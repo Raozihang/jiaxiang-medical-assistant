@@ -132,6 +132,14 @@ function parsePeriodReport(value: unknown, period: string): PeriodReport {
   };
 }
 
+function decodeDispositionFilename(value: string) {
+  try {
+    return decodeURIComponent(value.trim().replace(/^UTF-8''/i, ""));
+  } catch {
+    return value;
+  }
+}
+
 function parseOverview(value: unknown): OverviewReport {
   const data = unwrapApiData<unknown>(value);
   const record = asRecord(data);
@@ -182,13 +190,16 @@ export async function exportReportExcel(period: "daily" | "weekly" | "monthly") 
   });
 
   const disposition = response.headers["content-disposition"] ?? "";
-  const match = disposition.match(/filename="?([^"]+)"?/);
-  const filename = match?.[1] ?? `报表_${period}.xlsx`;
+  const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+  const plainMatch = disposition.match(/filename="?([^";]+)"?/i);
+  const fallback = `report_${period}.xlsx`;
+  const rawFilename = utf8Match?.[1] ?? plainMatch?.[1] ?? fallback;
+  const filename = decodeDispositionFilename(rawFilename);
 
   const url = URL.createObjectURL(response.data as Blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = decodeURIComponent(filename);
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   a.remove();
