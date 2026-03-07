@@ -25,6 +25,8 @@ type UpdateVisitRequest struct {
 	Diagnosis    *string  `json:"diagnosis"`
 	Prescription []string `json:"prescription"`
 	Destination  *string  `json:"destination"`
+	FollowUpAt   *string  `json:"follow_up_at"`
+	FollowUpNote *string  `json:"follow_up_note"`
 }
 
 func NewVisitHandler(visitService *service.VisitService) *VisitHandler {
@@ -100,6 +102,8 @@ func (h *VisitHandler) Update(c *gin.Context) {
 		Diagnosis:    req.Diagnosis,
 		Prescription: prescription,
 		Destination:  req.Destination,
+		FollowUpAt:   req.FollowUpAt,
+		FollowUpNote: req.FollowUpNote,
 	})
 	if err != nil {
 		handleDomainError(c, err)

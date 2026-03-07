@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jiaxiang-medical-assistant/backend/internal/repository"
 )
@@ -119,6 +120,53 @@ func TestOutboundCallRetryUsesLatestContactAndVisitDestination(t *testing.T) {
 	}
 	if retried.TemplateParams == "" || !strings.Contains(retried.TemplateParams, "referred") {
 		t.Fatalf("expected template params to preserve destination, got %q", retried.TemplateParams)
+	}
+}
+
+func TestVisitServiceUpdateParsesAndClearsFollowUp(t *testing.T) {
+	ctx := context.Background()
+	visitRepo := repository.NewMockVisitRepository()
+	visitService := NewVisitService(visitRepo)
+	visit := seedVisit(t, ctx, visitRepo)
+
+	followUpAt := time.Now().UTC().Add(2 * time.Hour).Truncate(time.Second)
+	followUpAtText := followUpAt.Format(time.RFC3339)
+	note := "bring parent reply"
+
+	updated, err := visitService.Update(ctx, visit.ID, UpdateVisitInput{FollowUpAt: &followUpAtText, FollowUpNote: &note})
+	if err != nil {
+		t.Fatalf("set follow-up failed: %v", err)
+	}
+	if updated.FollowUpAt == nil || !updated.FollowUpAt.Equal(followUpAt) {
+		t.Fatalf("expected follow_up_at %s, got %#v", followUpAt, updated.FollowUpAt)
+	}
+	if updated.FollowUpNote == nil || *updated.FollowUpNote != note {
+		t.Fatalf("expected follow_up_note %q, got %#v", note, updated.FollowUpNote)
+	}
+
+	empty := ""
+	cleared, err := visitService.Update(ctx, visit.ID, UpdateVisitInput{FollowUpAt: &empty, FollowUpNote: &empty})
+	if err != nil {
+		t.Fatalf("clear follow-up failed: %v", err)
+	}
+	if cleared.FollowUpAt != nil {
+		t.Fatalf("expected follow_up_at to be cleared, got %#v", cleared.FollowUpAt)
+	}
+	if cleared.FollowUpNote == nil || *cleared.FollowUpNote != "" {
+		t.Fatalf("expected follow_up_note to be empty string, got %#v", cleared.FollowUpNote)
+	}
+}
+
+func TestVisitServiceUpdateRejectsInvalidFollowUpDatetime(t *testing.T) {
+	ctx := context.Background()
+	visitRepo := repository.NewMockVisitRepository()
+	visitService := NewVisitService(visitRepo)
+	visit := seedVisit(t, ctx, visitRepo)
+	invalid := "2026-99-99 25:61"
+
+	_, err := visitService.Update(ctx, visit.ID, UpdateVisitInput{FollowUpAt: &invalid})
+	if err != ErrInvalidInput {
+		t.Fatalf("expected ErrInvalidInput, got %v", err)
 	}
 }
 

@@ -17,6 +17,8 @@ type Visit struct {
 	Diagnosis    string         `gorm:"type:text" json:"diagnosis"`
 	Prescription datatypes.JSON `gorm:"type:jsonb" json:"prescription"`
 	Destination  string         `gorm:"size:32" json:"destination"`
+	FollowUpAt   *time.Time     `gorm:"type:timestamptz" json:"follow_up_at"`
+	FollowUpNote *string        `gorm:"type:text" json:"follow_up_note"`
 	CreatedAt    time.Time      `json:"created_at"`
 	UpdatedAt    time.Time      `json:"updated_at"`
 }

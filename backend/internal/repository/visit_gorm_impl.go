@@ -82,12 +82,7 @@ func (r *GormVisitRepository) List(ctx context.Context, params VisitListParams) 
 		items = append(items, toVisitDTO(row, students[row.StudentID]))
 	}
 
-	return PageResult[Visit]{
-		Items:    items,
-		Page:     params.Page,
-		PageSize: params.PageSize,
-		Total:    total,
-	}, nil
+	return PageResult[Visit]{Items: items, Page: params.Page, PageSize: params.PageSize, Total: total}, nil
 }
 
 func (r *GormVisitRepository) Create(ctx context.Context, input CreateVisitInput) (Visit, error) {
@@ -167,6 +162,18 @@ func (r *GormVisitRepository) Update(ctx context.Context, id string, input Updat
 	if input.Destination != nil {
 		row.Destination = strings.TrimSpace(*input.Destination)
 	}
+	if input.SetFollowUpAt {
+		if input.FollowUpAt != nil {
+			followUpAt := input.FollowUpAt.UTC()
+			row.FollowUpAt = &followUpAt
+		} else {
+			row.FollowUpAt = nil
+		}
+	}
+	if input.FollowUpNote != nil {
+		followUpNote := strings.TrimSpace(*input.FollowUpNote)
+		row.FollowUpNote = &followUpNote
+	}
 	row.UpdatedAt = time.Now().UTC()
 
 	if err := r.db.WithContext(ctx).Save(&row).Error; err != nil {
@@ -183,19 +190,22 @@ func (r *GormVisitRepository) Update(ctx context.Context, id string, input Updat
 
 func (r *GormVisitRepository) CountToday(ctx context.Context, now time.Time) (int64, error) {
 	var count int64
-	err := r.db.WithContext(ctx).
-		Model(&model.Visit{}).
-		Where("created_at >= ?", dayStart(now)).
-		Count(&count).Error
+	err := r.db.WithContext(ctx).Model(&model.Visit{}).Where("created_at >= ?", dayStart(now)).Count(&count).Error
 	return count, err
 }
 
 func (r *GormVisitRepository) CountObservationToday(ctx context.Context, now time.Time) (int64, error) {
 	var count int64
+	err := r.db.WithContext(ctx).Model(&model.Visit{}).Where("created_at >= ?", dayStart(now)).Where("destination = ?", "observation").Count(&count).Error
+	return count, err
+}
+
+func (r *GormVisitRepository) CountDueFollowUps(ctx context.Context, now time.Time) (int64, error) {
+	var count int64
 	err := r.db.WithContext(ctx).
 		Model(&model.Visit{}).
-		Where("created_at >= ?", dayStart(now)).
-		Where("destination = ?", "observation").
+		Where("follow_up_at IS NOT NULL").
+		Where("follow_up_at <= ?", now.UTC()).
 		Count(&count).Error
 	return count, err
 }
@@ -242,13 +252,7 @@ func (r *GormVisitRepository) ensureStudentByCode(ctx context.Context, studentID
 		return model.Student{}, err
 	}
 
-	student = model.Student{
-		ID:        uuid.New(),
-		StudentID: studentID,
-		Name:      "Student-" + studentID,
-		ClassID:   uuid.New(),
-		Grade:     "Unknown",
-	}
+	student = model.Student{ID: uuid.New(), StudentID: studentID, Name: "Student-" + studentID, ClassID: uuid.New(), Grade: "Unknown"}
 	if createErr := r.db.WithContext(ctx).Create(&student).Error; createErr != nil {
 		return model.Student{}, createErr
 	}
@@ -282,7 +286,14 @@ func toVisitDTO(row model.Visit, student model.Student) Visit {
 		Diagnosis:    row.Diagnosis,
 		Prescription: prescription,
 		Destination:  row.Destination,
+		FollowUpAt:   row.FollowUpAt,
+		FollowUpNote: row.FollowUpNote,
 		CreatedAt:    row.CreatedAt,
 		UpdatedAt:    row.UpdatedAt,
 	}
+}
+
+func dayStart(now time.Time) time.Time {
+	ts := now.UTC()
+	return time.Date(ts.Year(), ts.Month(), ts.Day(), 0, 0, 0, 0, time.UTC)
 }
