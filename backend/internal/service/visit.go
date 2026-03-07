@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/jiaxiang-medical-assistant/backend/internal/repository"
 )
@@ -27,6 +28,8 @@ type UpdateVisitInput struct {
 	Diagnosis    *string
 	Prescription *[]string
 	Destination  *string
+	FollowUpAt   *string
+	FollowUpNote *string
 }
 
 func NewVisitService(repo repository.VisitRepository, outboundCallService ...*OutboundCallService) *VisitService {
@@ -71,11 +74,27 @@ func (s *VisitService) GetByID(ctx context.Context, id string) (repository.Visit
 }
 
 func (s *VisitService) Update(ctx context.Context, id string, input UpdateVisitInput) (repository.Visit, error) {
-	visit, err := s.repo.Update(ctx, strings.TrimSpace(id), repository.UpdateVisitInput{
+	repoInput := repository.UpdateVisitInput{
 		Diagnosis:    input.Diagnosis,
 		Prescription: input.Prescription,
 		Destination:  input.Destination,
-	})
+		FollowUpNote: trimStringPtr(input.FollowUpNote),
+	}
+
+	if input.FollowUpAt != nil {
+		repoInput.SetFollowUpAt = true
+		followUpAtRaw := strings.TrimSpace(*input.FollowUpAt)
+		if followUpAtRaw != "" {
+			followUpAt, err := time.Parse(time.RFC3339, followUpAtRaw)
+			if err != nil {
+				return repository.Visit{}, ErrInvalidInput
+			}
+			followUpAtUTC := followUpAt.UTC()
+			repoInput.FollowUpAt = &followUpAtUTC
+		}
+	}
+
+	visit, err := s.repo.Update(ctx, strings.TrimSpace(id), repoInput)
 	if err != nil {
 		return repository.Visit{}, err
 	}

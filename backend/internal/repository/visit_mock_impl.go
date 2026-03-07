@@ -61,12 +61,7 @@ func (r *MockVisitRepository) List(_ context.Context, params VisitListParams) (P
 	})
 
 	start, end := pageWindow(params.Page, params.PageSize, len(items))
-	return PageResult[Visit]{
-		Items:    items[start:end],
-		Page:     params.Page,
-		PageSize: params.PageSize,
-		Total:    int64(len(items)),
-	}, nil
+	return PageResult[Visit]{Items: items[start:end], Page: params.Page, PageSize: params.PageSize, Total: int64(len(items))}, nil
 }
 
 func (r *MockVisitRepository) Create(_ context.Context, input CreateVisitInput) (Visit, error) {
@@ -75,19 +70,8 @@ func (r *MockVisitRepository) Create(_ context.Context, input CreateVisitInput) 
 
 	now := time.Now().UTC()
 	id := uuid.NewString()
-	visit := Visit{
-		ID:          id,
-		StudentID:   input.StudentID,
-		StudentName: "Student-" + input.StudentID,
-		ClassName:   "Unknown Class",
-		Symptoms:    input.Symptoms,
-		Description: strings.TrimSpace(input.Description),
-		Destination: "observation",
-		CreatedAt:   now,
-		UpdatedAt:   now,
-	}
+	visit := Visit{ID: id, StudentID: input.StudentID, StudentName: "Student-" + input.StudentID, ClassName: "Unknown Class", Symptoms: input.Symptoms, Description: strings.TrimSpace(input.Description), Destination: "observation", CreatedAt: now, UpdatedAt: now}
 	r.visits[id] = visit
-
 	return visit, nil
 }
 
@@ -120,6 +104,18 @@ func (r *MockVisitRepository) Update(_ context.Context, id string, input UpdateV
 	}
 	if input.Destination != nil {
 		visit.Destination = strings.TrimSpace(*input.Destination)
+	}
+	if input.SetFollowUpAt {
+		if input.FollowUpAt != nil {
+			followUpAt := input.FollowUpAt.UTC()
+			visit.FollowUpAt = &followUpAt
+		} else {
+			visit.FollowUpAt = nil
+		}
+	}
+	if input.FollowUpNote != nil {
+		followUpNote := strings.TrimSpace(*input.FollowUpNote)
+		visit.FollowUpNote = &followUpNote
 	}
 	visit.UpdatedAt = time.Now().UTC()
 	r.visits[id] = visit
@@ -160,9 +156,21 @@ func (r *MockVisitRepository) CountObservationToday(_ context.Context, now time.
 	return count, nil
 }
 
-func dayStart(now time.Time) time.Time {
-	ts := now.UTC()
-	return time.Date(ts.Year(), ts.Month(), ts.Day(), 0, 0, 0, 0, time.UTC)
+func (r *MockVisitRepository) CountDueFollowUps(_ context.Context, now time.Time) (int64, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	var count int64
+	for _, visit := range r.visits {
+		if visit.FollowUpAt == nil {
+			continue
+		}
+		if !visit.FollowUpAt.After(now.UTC()) {
+			count++
+		}
+	}
+
+	return count, nil
 }
 
 func pageWindow(page int, pageSize int, total int) (int, int) {

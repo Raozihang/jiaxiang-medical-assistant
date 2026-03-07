@@ -1,4 +1,4 @@
-import { http } from "@/shared/api/http";
+﻿import { http } from "@/shared/api/http";
 import type { ApiResponse, Paginated } from "@/shared/types/api";
 
 export type Visit = {
@@ -11,6 +11,8 @@ export type Visit = {
   diagnosis: string;
   prescription: string[];
   destination: string;
+  follow_up_at: string | null;
+  follow_up_note: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -25,6 +27,8 @@ export type UpdateVisitPayload = {
   diagnosis?: string;
   prescription?: string[];
   destination?: string;
+  follow_up_at?: string | null;
+  follow_up_note?: string | null;
 };
 
 export async function listVisits(params: { page?: number; pageSize?: number; studentId?: string }) {

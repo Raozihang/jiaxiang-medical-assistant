@@ -16,6 +16,7 @@ type Overview struct {
 	TodayVisits         int64 `json:"today_visits"`
 	ObservationStudents int64 `json:"observation_students"`
 	StockWarnings       int64 `json:"stock_warnings"`
+	DueFollowUps        int64 `json:"due_follow_ups"`
 }
 
 func NewReportService(visitRepo repository.VisitRepository, medicineRepo repository.MedicineRepository) *ReportService {
@@ -36,10 +37,15 @@ func (s *ReportService) Overview(ctx context.Context) (Overview, error) {
 	if err != nil {
 		return Overview{}, err
 	}
+	dueFollowUps, err := s.visitRepo.CountDueFollowUps(ctx, now)
+	if err != nil {
+		return Overview{}, err
+	}
 
 	return Overview{
 		TodayVisits:         todayVisits,
 		ObservationStudents: observation,
 		StockWarnings:       warnings,
+		DueFollowUps:        dueFollowUps,
 	}, nil
 }

@@ -1,4 +1,4 @@
-import { Card, Col, Row, Space, Statistic, Typography } from "antd";
+﻿import { Card, Col, Row, Space, Statistic, Typography } from "antd";
 import { useEffect, useState } from "react";
 import { getOverviewReport, type OverviewReport } from "@/shared/api/reports";
 
@@ -6,6 +6,7 @@ const defaultReport: OverviewReport = {
   today_visits: 0,
   observation_students: 0,
   stock_warnings: 0,
+  due_follow_ups: 0,
 };
 
 export function DashboardPage() {
@@ -30,17 +31,22 @@ export function DashboardPage() {
         Management Dashboard
       </Typography.Title>
       <Row gutter={[16, 16]}>
-        <Col span={8}>
+        <Col xs={24} sm={12} lg={6}>
           <Card loading={loading}>
             <Statistic title="Today Visits" value={report.today_visits} />
           </Card>
         </Col>
-        <Col span={8}>
+        <Col xs={24} sm={12} lg={6}>
           <Card loading={loading}>
             <Statistic title="Observation Students" value={report.observation_students} />
           </Card>
         </Col>
-        <Col span={8}>
+        <Col xs={24} sm={12} lg={6}>
+          <Card loading={loading}>
+            <Statistic title="Due Follow-ups" value={report.due_follow_ups} />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
           <Card loading={loading}>
             <Statistic title="Stock Warnings" value={report.stock_warnings} />
           </Card>
