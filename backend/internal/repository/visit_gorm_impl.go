@@ -35,13 +35,13 @@ func (r *GormVisitRepository) EnsureSeedData(ctx context.Context) error {
 		return err
 	}
 
-	symptoms, _ := json.Marshal([]string{"fever"})
+	symptoms, _ := json.Marshal([]string{"发热"})
 	now := time.Now().UTC()
 	return r.db.WithContext(ctx).Create(&model.Visit{
 		StudentID:   student.ID,
 		DoctorID:    uuid.New(),
 		Symptoms:    datatypes.JSON(symptoms),
-		Description: "felt unwell after PE class",
+		Description: "上午体育课后感到不适",
 		Destination: "observation",
 		CreatedAt:   now.Add(-10 * time.Minute),
 		UpdatedAt:   now.Add(-10 * time.Minute),
@@ -82,7 +82,12 @@ func (r *GormVisitRepository) List(ctx context.Context, params VisitListParams) 
 		items = append(items, toVisitDTO(row, students[row.StudentID]))
 	}
 
-	return PageResult[Visit]{Items: items, Page: params.Page, PageSize: params.PageSize, Total: total}, nil
+	return PageResult[Visit]{
+		Items:    items,
+		Page:     params.Page,
+		PageSize: params.PageSize,
+		Total:    total,
+	}, nil
 }
 
 func (r *GormVisitRepository) Create(ctx context.Context, input CreateVisitInput) (Visit, error) {
@@ -97,6 +102,9 @@ func (r *GormVisitRepository) Create(ctx context.Context, input CreateVisitInput
 	}
 
 	now := time.Now().UTC()
+	if input.CreatedAt != nil {
+		now = input.CreatedAt.UTC()
+	}
 	row := model.Visit{
 		StudentID:   student.ID,
 		DoctorID:    uuid.New(),
@@ -163,16 +171,20 @@ func (r *GormVisitRepository) Update(ctx context.Context, id string, input Updat
 		row.Destination = strings.TrimSpace(*input.Destination)
 	}
 	if input.SetFollowUpAt {
-		if input.FollowUpAt != nil {
+		if input.FollowUpAt == nil {
+			row.FollowUpAt = nil
+		} else {
 			followUpAt := input.FollowUpAt.UTC()
 			row.FollowUpAt = &followUpAt
-		} else {
-			row.FollowUpAt = nil
 		}
 	}
 	if input.FollowUpNote != nil {
-		followUpNote := strings.TrimSpace(*input.FollowUpNote)
-		row.FollowUpNote = &followUpNote
+		note := strings.TrimSpace(*input.FollowUpNote)
+		if note == "" {
+			row.FollowUpNote = nil
+		} else {
+			row.FollowUpNote = &note
+		}
 	}
 	row.UpdatedAt = time.Now().UTC()
 
@@ -190,13 +202,20 @@ func (r *GormVisitRepository) Update(ctx context.Context, id string, input Updat
 
 func (r *GormVisitRepository) CountToday(ctx context.Context, now time.Time) (int64, error) {
 	var count int64
-	err := r.db.WithContext(ctx).Model(&model.Visit{}).Where("created_at >= ?", dayStart(now)).Count(&count).Error
+	err := r.db.WithContext(ctx).
+		Model(&model.Visit{}).
+		Where("created_at >= ?", dayStart(now)).
+		Count(&count).Error
 	return count, err
 }
 
 func (r *GormVisitRepository) CountObservationToday(ctx context.Context, now time.Time) (int64, error) {
 	var count int64
-	err := r.db.WithContext(ctx).Model(&model.Visit{}).Where("created_at >= ?", dayStart(now)).Where("destination = ?", "observation").Count(&count).Error
+	err := r.db.WithContext(ctx).
+		Model(&model.Visit{}).
+		Where("created_at >= ?", dayStart(now)).
+		Where("destination = ?", "observation").
+		Count(&count).Error
 	return count, err
 }
 
@@ -252,7 +271,13 @@ func (r *GormVisitRepository) ensureStudentByCode(ctx context.Context, studentID
 		return model.Student{}, err
 	}
 
-	student = model.Student{ID: uuid.New(), StudentID: studentID, Name: "Student-" + studentID, ClassID: uuid.New(), Grade: "Unknown"}
+	student = model.Student{
+		ID:        uuid.New(),
+		StudentID: studentID,
+		Name:      "学生-" + studentID,
+		ClassID:   uuid.New(),
+		Grade:     "未知年级",
+	}
 	if createErr := r.db.WithContext(ctx).Create(&student).Error; createErr != nil {
 		return model.Student{}, createErr
 	}
@@ -269,7 +294,7 @@ func toVisitDTO(row model.Visit, student model.Student) Visit {
 
 	studentCode := row.StudentID.String()
 	studentName := row.StudentID.String()
-	className := "Unknown Class"
+	className := "未知班级"
 	if student.ID != uuid.Nil {
 		studentCode = student.StudentID
 		studentName = student.Name
@@ -291,9 +316,4 @@ func toVisitDTO(row model.Visit, student model.Student) Visit {
 		CreatedAt:    row.CreatedAt,
 		UpdatedAt:    row.UpdatedAt,
 	}
-}
-
-func dayStart(now time.Time) time.Time {
-	ts := now.UTC()
-	return time.Date(ts.Year(), ts.Month(), ts.Day(), 0, 0, 0, 0, time.UTC)
 }

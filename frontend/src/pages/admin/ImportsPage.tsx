@@ -1,55 +1,89 @@
-﻿import { Button, Card, Form, Input, Space, Table, Tag, Typography, message } from "antd";
+import { ReloadOutlined } from "@ant-design/icons";
+import { Button, Card, Form, Input, message, Space, Table, Tag, Typography } from "antd";
 import type { ColumnsType, TablePaginationConfig } from "antd/es/table";
 import { useCallback, useEffect, useState } from "react";
-import { createImportTask, listImportTasks, type ImportTask, type VisitImportItem } from "@/shared/api/imports";
+import {
+  createImportTask,
+  listImportTasks,
+  type ImportTask,
+  type VisitImportItem,
+} from "@/shared/api/imports";
+import { getErrorMessage } from "@/shared/api/helpers";
+
+type ImportTaskRow = {
+  id: string;
+  status: string;
+  total: number;
+  success: number;
+  failed: number;
+  progress: number;
+  errorSummary: string;
+  createdAt: string;
+  updatedAt: string;
+};
 
 type ImportForm = {
   visitsJson: string;
 };
 
-type ImportTaskRow = ImportTask & {
-  progress: number;
-  errorSummary: string;
-};
-
-const examplePayload = JSON.stringify(
-  [
-    {
-      student_id: "20260002",
-      symptoms: ["cough", "fever"],
-      description: "Imported from history",
-      diagnosis: "Common cold",
-      prescription: ["Warm water"],
-      destination: "observation",
-    },
-  ],
-  null,
-  2,
-);
-
-function statusColor(status: string) {
-  switch (status) {
-    case "completed":
-      return "green";
-    case "completed_with_errors":
-      return "orange";
-    case "failed":
-      return "red";
-    default:
-      return "blue";
+const examplePayload = `[
+  {
+    "student_id": "20260001",
+    "symptoms": ["fever", "cough"],
+    "description": "history record from paper chart",
+    "diagnosis": "upper respiratory infection",
+    "prescription": ["acetaminophen"],
+    "destination": "observation",
+    "created_at": "2026-02-20T08:00:00Z"
   }
+]`;
+
+function formatDate(value: string) {
+  if (!value) {
+    return "-";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return date.toLocaleString();
 }
 
-function toRow(task: ImportTask): ImportTaskRow {
-  const progress = task.total > 0 ? Math.round(((task.success + task.failed) / task.total) * 100) : 0;
+function statusColor(status: string) {
+  if (["completed", "success"].includes(status)) {
+    return "green";
+  }
+  if (["failed"].includes(status)) {
+    return "red";
+  }
+  if (["processing", "running"].includes(status)) {
+    return "blue";
+  }
+  if (["completed_with_errors"].includes(status)) {
+    return "orange";
+  }
+  return "default";
+}
+
+function toTaskRow(task: ImportTask): ImportTaskRow {
+  const errorSummary =
+    task.errors.length > 0 ? task.errors.map((item) => `#${item.index}: ${item.message}`).join("; ") : "-";
+
   return {
-    ...task,
-    progress,
-    errorSummary: task.errors.map((item) => `#${item.index + 1} ${item.message}`).join("; ") || "-",
+    id: task.id,
+    status: task.status,
+    total: task.total,
+    success: task.success,
+    failed: task.failed,
+    progress: task.progress,
+    errorSummary,
+    createdAt: formatDate(task.created_at),
+    updatedAt: formatDate(task.updated_at),
   };
 }
 
 export function ImportsPage() {
+  const [messageApi, contextHolder] = message.useMessage();
   const [form] = Form.useForm<ImportForm>();
   const [rows, setRows] = useState<ImportTaskRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -57,70 +91,107 @@ export function ImportsPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [total, setTotal] = useState(0);
-  const [messageApi, contextHolder] = message.useMessage();
 
-  const fetchTasks = useCallback(async (targetPage: number, targetPageSize: number) => {
-    setLoading(true);
-    try {
-      const data = await listImportTasks({ page: targetPage, pageSize: targetPageSize });
-      setRows(data.items.map(toRow));
-      setPage(data.page);
-      setPageSize(data.page_size);
-      setTotal(data.total);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const fetchTasks = useCallback(
+    async (targetPage: number, targetPageSize: number) => {
+      setLoading(true);
+      try {
+        const data = await listImportTasks({ page: targetPage, pageSize: targetPageSize });
+        setRows(data.items.map(toTaskRow));
+        setPage(data.page || targetPage);
+        setPageSize(data.page_size || targetPageSize);
+        setTotal(data.total);
+      } catch (error) {
+        messageApi.error(getErrorMessage(error, "导入任务获取失败"));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [messageApi],
+  );
 
   useEffect(() => {
     void fetchTasks(page, pageSize);
   }, [fetchTasks, page, pageSize]);
 
   const handleCreate = async (values: ImportForm) => {
+    let items: VisitImportItem[] = [];
+    try {
+      const parsed = JSON.parse(values.visitsJson);
+      if (!Array.isArray(parsed)) {
+        messageApi.error("导入数据必须是 JSON 数组");
+        return;
+      }
+      items = parsed as VisitImportItem[];
+    } catch {
+      messageApi.error("JSON 格式不正确");
+      return;
+    }
+
     setSubmitting(true);
     try {
-      const items = JSON.parse(values.visitsJson) as VisitImportItem[];
-      if (!Array.isArray(items)) {
-        throw new Error("JSON must be an array");
-      }
       await createImportTask(items);
-      messageApi.success("Import task created");
+      messageApi.success("导入任务已创建");
       await fetchTasks(1, pageSize);
     } catch (error) {
-      messageApi.error(error instanceof Error ? error.message : "Failed to create import task");
+      messageApi.error(getErrorMessage(error, "创建导入任务失败"));
     } finally {
       setSubmitting(false);
     }
   };
 
   const columns: ColumnsType<ImportTaskRow> = [
-    { title: "Task ID", dataIndex: "id", width: 220 },
-    { title: "Status", dataIndex: "status", width: 180, render: (value: string) => <Tag color={statusColor(value)}>{value}</Tag> },
-    { title: "Total", dataIndex: "total", width: 80 },
-    { title: "Success", dataIndex: "success", width: 80 },
-    { title: "Failed", dataIndex: "failed", width: 80 },
-    { title: "Progress", dataIndex: "progress", width: 100, render: (value: number) => `${value}%` },
-    { title: "Errors", dataIndex: "errorSummary" },
-    { title: "Updated At", dataIndex: "updated_at", width: 180, render: (value: string) => new Date(value).toLocaleString() },
+    { title: "任务 ID", dataIndex: "id", width: 220 },
+    {
+      title: "状态",
+      dataIndex: "status",
+      width: 180,
+      render: (value: string) => <Tag color={statusColor(value)}>{value}</Tag>,
+    },
+    { title: "总数", dataIndex: "total", width: 80 },
+    { title: "成功", dataIndex: "success", width: 80 },
+    { title: "失败", dataIndex: "failed", width: 80 },
+    { title: "进度", dataIndex: "progress", width: 100, render: (value) => `${value}%` },
+    { title: "错误", dataIndex: "errorSummary", width: 320 },
+    { title: "创建时间", dataIndex: "createdAt", width: 180 },
+    { title: "更新时间", dataIndex: "updatedAt", width: 180 },
   ];
 
   return (
     <Space direction="vertical" size={16} style={{ width: "100%" }}>
       {contextHolder}
       <Typography.Title level={3} style={{ marginBottom: 0 }}>
-        Historical Visit Import
+        历史数据导入
       </Typography.Title>
-      <Card title="Create Import Task (JSON array)" extra={<Button onClick={() => void fetchTasks(page, pageSize)}>Refresh</Button>}>
-        <Form layout="vertical" form={form} onFinish={(values) => void handleCreate(values)} initialValues={{ visitsJson: examplePayload }}>
-          <Form.Item label="Import Data" name="visitsJson" rules={[{ required: true, message: "Please input import JSON" }]}>
+
+      <Card
+        title="创建导入任务（JSON 数组）"
+        extra={
+          <Button icon={<ReloadOutlined />} onClick={() => void fetchTasks(page, pageSize)}>
+            刷新列表
+          </Button>
+        }
+      >
+        <Form
+          layout="vertical"
+          form={form}
+          onFinish={(values) => void handleCreate(values)}
+          initialValues={{ visitsJson: examplePayload }}
+        >
+          <Form.Item
+            label="导入数据"
+            name="visitsJson"
+            rules={[{ required: true, message: "请输入导入数据 JSON" }]}
+          >
             <Input.TextArea rows={10} placeholder={examplePayload} />
           </Form.Item>
           <Button htmlType="submit" type="primary" loading={submitting}>
-            Submit Import
+            提交导入
           </Button>
         </Form>
       </Card>
-      <Card title="Import Task Status">
+
+      <Card title="导入任务状态">
         <Table
           rowKey="id"
           columns={columns}
@@ -138,7 +209,7 @@ export function ImportsPage() {
               },
             } as TablePaginationConfig
           }
-          scroll={{ x: 1200 }}
+          scroll={{ x: 1400 }}
         />
       </Card>
     </Space>

@@ -12,29 +12,39 @@ import (
 
 func InitDatabase(cfg config.Config) (*gorm.DB, func()) {
 	if !cfg.DB.IsConfigured() {
-		log.Printf("database config not found, skip database bootstrap")
+		log.Printf("未配置数据库连接，跳过数据库初始化")
 		return nil, func() {}
 	}
 
 	db, err := gorm.Open(postgres.Open(cfg.DB.DSN()), &gorm.Config{})
 	if err != nil {
-		log.Printf("database bootstrap failed: %v", err)
+		log.Printf("数据库初始化失败: %v", err)
 		return nil, func() {}
 	}
 
-	if err := db.AutoMigrate(&model.Student{}, &model.Visit{}, &model.Medicine{}, &model.OutboundCall{}, &model.ImportTask{}); err != nil {
-		log.Printf("database migration failed: %v", err)
+	if err := db.AutoMigrate(
+		&model.Student{},
+		&model.Visit{},
+		&model.Medicine{},
+		&model.ImportTask{},
+		&model.NotificationLog{},
+		&model.OutboundCall{},
+		&model.SafetyAlertState{},
+		&model.ReportTemplate{},
+		&model.ReportSchedule{},
+	); err != nil {
+		log.Printf("数据库迁移失败: %v", err)
 	}
 
 	sqlDB, err := db.DB()
 	if err != nil {
-		log.Printf("database sql handle failed: %v", err)
+		log.Printf("获取数据库句柄失败: %v", err)
 		return db, func() {}
 	}
 
 	return db, func() {
 		if closeErr := closeDatabase(sqlDB); closeErr != nil {
-			log.Printf("database close failed: %v", closeErr)
+			log.Printf("数据库关闭失败: %v", closeErr)
 		}
 	}
 }

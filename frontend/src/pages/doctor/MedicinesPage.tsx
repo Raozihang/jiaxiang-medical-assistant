@@ -1,3 +1,4 @@
+import { ReloadOutlined } from "@ant-design/icons";
 import { Button, Card, InputNumber, message, Progress, Space, Table, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useCallback, useEffect, useState } from "react";
@@ -49,35 +50,35 @@ export function MedicinesPage() {
   const changeStock = async (id: string, outbound: boolean) => {
     if (outbound) {
       await outboundMedicine({ medicine_id: id, quantity });
-      messageApi.success("Outbound completed");
+      messageApi.success("出库完成");
     } else {
       await inboundMedicine({ medicine_id: id, quantity });
-      messageApi.success("Inbound completed");
+      messageApi.success("入库完成");
     }
     await fetchList();
   };
 
   const columns: ColumnsType<MedicineRow> = [
-    { title: "Medicine", dataIndex: "name" },
-    { title: "Stock", dataIndex: "stock" },
+    { title: "药品名称", dataIndex: "name" },
+    { title: "库存数量", dataIndex: "stock" },
     {
-      title: "Stock Status",
+      title: "库存状态",
       render: (_, row) => {
         const percent = Math.min(100, Math.round((row.stock / row.safeStock) * 100));
         const status = row.stock < row.safeStock ? "exception" : "normal";
         return <Progress percent={percent} status={status} size="small" />;
       },
     },
-    { title: "Expiry Date", dataIndex: "expiryDate" },
+    { title: "有效期", dataIndex: "expiryDate" },
     {
-      title: "Action",
+      title: "操作",
       render: (_, row) => (
         <Space>
           <Button size="small" onClick={() => void changeStock(row.id, false)}>
-            Inbound
+            入库
           </Button>
           <Button size="small" danger onClick={() => void changeStock(row.id, true)}>
-            Outbound
+            出库
           </Button>
         </Space>
       ),
@@ -87,12 +88,17 @@ export function MedicinesPage() {
   return (
     <Space direction="vertical" size={16} style={{ width: "100%" }}>
       {contextHolder}
-      <Typography.Title level={3} style={{ marginBottom: 0 }}>
-        Medicine Inventory
-      </Typography.Title>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <Typography.Title level={3} style={{ marginBottom: 0 }}>
+          药品库存管理
+        </Typography.Title>
+        <Button icon={<ReloadOutlined />} onClick={() => void fetchList()}>
+          刷新
+        </Button>
+      </div>
       <Card>
         <Space style={{ marginBottom: 12 }}>
-          <Typography.Text>Stock change quantity:</Typography.Text>
+          <Typography.Text>库存变动数量：</Typography.Text>
           <InputNumber
             min={1}
             value={quantity}
@@ -105,6 +111,8 @@ export function MedicinesPage() {
           dataSource={rows}
           loading={loading}
           pagination={false}
+          rowClassName={(row) => (row.stock < row.safeStock ? "medicine-row-warning" : "")}
+          locale={{ emptyText: "暂无药品数据" }}
         />
       </Card>
     </Space>

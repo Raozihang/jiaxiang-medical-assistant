@@ -7,8 +7,8 @@ import (
 )
 
 var (
-	ErrNotFound          = errors.New("resource not found")
-	ErrInsufficientStock = errors.New("insufficient stock")
+	ErrNotFound          = errors.New("资源未找到")
+	ErrInsufficientStock = errors.New("库存不足")
 )
 
 type PageParams struct {
@@ -48,14 +48,15 @@ type CreateVisitInput struct {
 	StudentID   string
 	Symptoms    []string
 	Description string
+	CreatedAt   *time.Time
 }
 
 type UpdateVisitInput struct {
 	Diagnosis     *string
 	Prescription  *[]string
 	Destination   *string
-	SetFollowUpAt bool
 	FollowUpAt    *time.Time
+	SetFollowUpAt bool
 	FollowUpNote  *string
 }
 
@@ -68,106 +69,6 @@ type VisitRepository interface {
 	CountObservationToday(ctx context.Context, now time.Time) (int64, error)
 	CountDueFollowUps(ctx context.Context, now time.Time) (int64, error)
 	EnsureSeedData(ctx context.Context) error
-}
-
-type StudentContact struct {
-	StudentID        string `json:"student_id"`
-	StudentName      string `json:"student_name"`
-	GuardianName     string `json:"guardian_name"`
-	GuardianPhone    string `json:"guardian_phone"`
-	GuardianRelation string `json:"guardian_relation"`
-}
-
-type StudentContactListParams struct {
-	PageParams
-	Keyword string
-}
-
-type UpdateStudentContactInput struct {
-	StudentName      *string
-	GuardianName     *string
-	GuardianPhone    *string
-	GuardianRelation *string
-}
-
-type StudentContactRepository interface {
-	List(ctx context.Context, params StudentContactListParams) (PageResult[StudentContact], error)
-	GetByStudentID(ctx context.Context, studentID string) (StudentContact, error)
-	UpdateByStudentID(ctx context.Context, studentID string, input UpdateStudentContactInput) (StudentContact, error)
-}
-
-type OutboundCall struct {
-	ID               string     `json:"id"`
-	VisitID          string     `json:"visit_id"`
-	StudentID        string     `json:"student_id"`
-	StudentName      string     `json:"student_name"`
-	GuardianName     string     `json:"guardian_name"`
-	GuardianPhone    string     `json:"guardian_phone"`
-	GuardianRelation string     `json:"guardian_relation"`
-	Scenario         string     `json:"scenario"`
-	Provider         string     `json:"provider"`
-	TriggerSource    string     `json:"trigger_source"`
-	Status           string     `json:"status"`
-	Message          string     `json:"message"`
-	TemplateCode     string     `json:"template_code"`
-	TemplateParams   string     `json:"template_params"`
-	RequestID        string     `json:"request_id"`
-	CallID           string     `json:"call_id"`
-	Error            string     `json:"error,omitempty"`
-	ResponseRaw      string     `json:"response_raw,omitempty"`
-	RetryOfID        *string    `json:"retry_of_id,omitempty"`
-	RequestedAt      time.Time  `json:"requested_at"`
-	CompletedAt      *time.Time `json:"completed_at,omitempty"`
-	CreatedAt        time.Time  `json:"created_at"`
-	UpdatedAt        time.Time  `json:"updated_at"`
-}
-
-type OutboundCallListParams struct {
-	PageParams
-	Status    string
-	StudentID string
-	Keyword   string
-}
-
-type CreateOutboundCallInput struct {
-	VisitID          string
-	StudentID        string
-	StudentName      string
-	GuardianName     string
-	GuardianPhone    string
-	GuardianRelation string
-	Scenario         string
-	Provider         string
-	TriggerSource    string
-	Status           string
-	Message          string
-	TemplateCode     string
-	TemplateParams   string
-	RequestID        string
-	CallID           string
-	Error            string
-	ResponseRaw      string
-	RetryOfID        *string
-	RequestedAt      time.Time
-	CompletedAt      *time.Time
-}
-
-type UpdateOutboundCallStatusInput struct {
-	Status      string
-	RequestID   *string
-	CallID      *string
-	Error       *string
-	ResponseRaw *string
-	CompletedAt *time.Time
-}
-
-type OutboundCallRepository interface {
-	Create(ctx context.Context, input CreateOutboundCallInput) (OutboundCall, error)
-	GetByID(ctx context.Context, id string) (OutboundCall, error)
-	List(ctx context.Context, params OutboundCallListParams) (PageResult[OutboundCall], error)
-	FindLatestByVisitAndScenario(ctx context.Context, visitID string, scenario string) (OutboundCall, error)
-	FindByRequestID(ctx context.Context, requestID string) (OutboundCall, error)
-	UpdateStatus(ctx context.Context, id string, input UpdateOutboundCallStatusInput) (OutboundCall, error)
 }
 
 type Medicine struct {

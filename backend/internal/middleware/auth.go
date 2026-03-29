@@ -44,7 +44,7 @@ func AuthRequired(authService *service.AuthService) gin.HandlerFunc {
 func writeAuthError(c *gin.Context) {
 	c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 		"code":       1002,
-		"message":    "unauthorized",
+		"message":    "未授权访问",
 		"data":       gin.H{},
 		"request_id": GetRequestID(c),
 		"timestamp":  time.Now().UTC().Format(time.RFC3339),

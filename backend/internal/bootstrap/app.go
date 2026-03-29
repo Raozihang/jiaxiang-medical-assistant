@@ -10,7 +10,7 @@ import (
 
 func NewServer(cfg config.Config) (*gin.Engine, func(), error) {
 	if err := cfg.Validate(); err != nil {
-		return nil, func() {}, fmt.Errorf("invalid config: %w", err)
+		return nil, func() {}, fmt.Errorf("配置无效: %w", err)
 	}
 
 	gin.SetMode(resolveGinMode(cfg.AppEnv))
@@ -24,12 +24,16 @@ func NewServer(cfg config.Config) (*gin.Engine, func(), error) {
 	)
 
 	database, cleanupDB := InitDatabase(cfg)
-	if err := registerRoutes(engine, cfg, database); err != nil {
+	routesCleanup, err := registerRoutes(engine, cfg, database)
+	if err != nil {
 		cleanupDB()
-		return nil, func() {}, fmt.Errorf("register routes: %w", err)
+		return nil, func() {}, fmt.Errorf("路由注册失败: %w", err)
 	}
 
-	return engine, cleanupDB, nil
+	return engine, func() {
+		routesCleanup()
+		cleanupDB()
+	}, nil
 }
 
 func resolveGinMode(appEnv string) string {

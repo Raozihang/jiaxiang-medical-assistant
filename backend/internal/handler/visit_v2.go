@@ -55,11 +55,11 @@ func (h *VisitHandler) List(c *gin.Context) {
 func (h *VisitHandler) Create(c *gin.Context) {
 	var req CreateVisitRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, 1001, "invalid request body")
+		response.Fail(c, http.StatusBadRequest, 1001, "请求参数无效")
 		return
 	}
 	if strings.TrimSpace(req.StudentID) == "" {
-		response.Fail(c, http.StatusBadRequest, 1001, "student_id is required")
+		response.Fail(c, http.StatusBadRequest, 1001, "学号不能为空")
 		return
 	}
 
@@ -89,7 +89,7 @@ func (h *VisitHandler) Detail(c *gin.Context) {
 func (h *VisitHandler) Update(c *gin.Context) {
 	var req UpdateVisitRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, 1001, "invalid request body")
+		response.Fail(c, http.StatusBadRequest, 1001, "请求参数无效")
 		return
 	}
 
@@ -115,13 +115,13 @@ func (h *VisitHandler) Update(c *gin.Context) {
 
 func handleDomainError(c *gin.Context, err error) {
 	switch {
-	case errors.Is(err, repository.ErrNotFound):
-		response.Fail(c, http.StatusNotFound, 2001, "resource not found")
-	case errors.Is(err, repository.ErrInsufficientStock):
-		response.Fail(c, http.StatusBadRequest, 3001, "insufficient stock")
 	case errors.Is(err, service.ErrInvalidInput):
-		response.Fail(c, http.StatusBadRequest, 1001, "invalid request body")
+		response.Fail(c, http.StatusBadRequest, 1001, "输入参数无效")
+	case errors.Is(err, repository.ErrNotFound):
+		response.Fail(c, http.StatusNotFound, 2001, "资源未找到")
+	case errors.Is(err, repository.ErrInsufficientStock):
+		response.Fail(c, http.StatusBadRequest, 3001, "库存不足")
 	default:
-		response.Fail(c, http.StatusInternalServerError, 5000, "internal error")
+		response.Fail(c, http.StatusInternalServerError, 5000, "服务内部错误")
 	}
 }

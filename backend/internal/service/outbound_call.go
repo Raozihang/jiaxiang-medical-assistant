@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"strings"
 	"time"
 
@@ -40,10 +39,6 @@ type AliyunCallbackInput struct {
 }
 
 func NewOutboundCallService(repo repository.OutboundCallRepository, visitRepo repository.VisitRepository, studentRepo repository.StudentContactRepository, provider OutboundCallProvider, templateCode string) *OutboundCallService {
-	if provider == nil {
-		provider = NewMockOutboundCallProvider()
-	}
-
 	return &OutboundCallService{
 		repo:         repo,
 		visitRepo:    visitRepo,
@@ -67,26 +62,22 @@ func (s *OutboundCallService) TrackVisitUpdate(ctx context.Context, visit reposi
 		return
 	}
 
-	_, err := s.repo.FindLatestByVisitAndScenario(ctx, visit.ID, OutboundCallScenarioExternalMedicalFollowup)
-	switch {
-	case err == nil:
-		return
-	case !errors.Is(err, repository.ErrNotFound):
+	if _, err := s.repo.FindLatestByVisitAndScenario(ctx, visit.ID, OutboundCallScenarioExternalMedicalFollowup); err == nil {
 		return
 	}
 
 	contact, err := s.studentRepo.GetByStudentID(ctx, visit.StudentID)
 	if err != nil {
-		_, _ = s.createSkippedCall(ctx, visit, fallbackContact(visit, repository.StudentContact{}), nil, "system", "guardian contact not found")
+		s.recordSkippedCall(ctx, visit, repository.StudentContact{}, "未找到家长联系人")
 		return
 	}
 
 	if strings.TrimSpace(contact.GuardianPhone) == "" {
-		_, _ = s.createSkippedCall(ctx, visit, contact, nil, "system", "guardian phone is empty")
+		s.recordSkippedCall(ctx, visit, contact, "家长手机号缺失")
 		return
 	}
 
-	_, _ = s.placeAndPersistCall(ctx, visit, contact, nil, "system")
+	s.placeAndPersistCall(ctx, visit, contact, nil, "system")
 }
 
 func (s *OutboundCallService) Retry(ctx context.Context, id string) (repository.OutboundCall, error) {
@@ -102,21 +93,7 @@ func (s *OutboundCallService) Retry(ctx context.Context, id string) (repository.
 
 	contact, err := s.studentRepo.GetByStudentID(ctx, current.StudentID)
 	if err != nil {
-		if !errors.Is(err, repository.ErrNotFound) {
-			return repository.OutboundCall{}, err
-		}
-		contact = repository.StudentContact{
-			StudentID:        current.StudentID,
-			StudentName:      current.StudentName,
-			GuardianName:     current.GuardianName,
-			GuardianPhone:    current.GuardianPhone,
-			GuardianRelation: current.GuardianRelation,
-		}
-	}
-	contact = fallbackContact(visit, contact)
-
-	if strings.TrimSpace(contact.GuardianPhone) == "" {
-		return s.createSkippedCall(ctx, visit, contact, &current.ID, "manual", "guardian phone is empty")
+		return repository.OutboundCall{}, err
 	}
 
 	return s.placeAndPersistCall(ctx, visit, contact, &current.ID, "manual")
@@ -138,7 +115,6 @@ func (s *OutboundCallService) HandleAliyunCallback(ctx context.Context, input Al
 	errText := strings.TrimSpace(input.Error)
 	callID := strings.TrimSpace(input.CallID)
 	payload := strings.TrimSpace(input.Payload)
-
 	return s.repo.UpdateStatus(ctx, call.ID, repository.UpdateOutboundCallStatusInput{
 		Status:      status,
 		CallID:      optionalStringPtr(callID),
@@ -148,11 +124,8 @@ func (s *OutboundCallService) HandleAliyunCallback(ctx context.Context, input Al
 	})
 }
 
-func (s *OutboundCallService) createSkippedCall(ctx context.Context, visit repository.Visit, contact repository.StudentContact, retryOfID *string, triggerSource string, reason string) (repository.OutboundCall, error) {
-	contact = fallbackContact(visit, contact)
-	now := time.Now().UTC()
-
-	return s.repo.Create(ctx, repository.CreateOutboundCallInput{
+func (s *OutboundCallService) recordSkippedCall(ctx context.Context, visit repository.Visit, contact repository.StudentContact, reason string) {
+	_, _ = s.repo.Create(ctx, repository.CreateOutboundCallInput{
 		VisitID:          visit.ID,
 		StudentID:        visit.StudentID,
 		StudentName:      visit.StudentName,
@@ -161,20 +134,18 @@ func (s *OutboundCallService) createSkippedCall(ctx context.Context, visit repos
 		GuardianRelation: contact.GuardianRelation,
 		Scenario:         OutboundCallScenarioExternalMedicalFollowup,
 		Provider:         s.provider.ProviderName(),
-		TriggerSource:    triggerSource,
+		TriggerSource:    "system",
 		Status:           "failed",
 		Message:          buildExternalMedicalCallMessage(visit, contact),
 		TemplateCode:     s.templateCode,
-		TemplateParams:   mustJSON(map[string]string{"reason": reason, "destination": visit.Destination}),
+		TemplateParams:   mustJSON(map[string]string{"reason": reason}),
 		Error:            reason,
-		RetryOfID:        retryOfID,
-		RequestedAt:      now,
-		CompletedAt:      timePtr(now),
+		RequestedAt:      time.Now().UTC(),
+		CompletedAt:      timePtr(time.Now().UTC()),
 	})
 }
 
 func (s *OutboundCallService) placeAndPersistCall(ctx context.Context, visit repository.Visit, contact repository.StudentContact, retryOfID *string, triggerSource string) (repository.OutboundCall, error) {
-	contact = fallbackContact(visit, contact)
 	message := buildExternalMedicalCallMessage(visit, contact)
 	vars := map[string]string{
 		"student_name":  visit.StudentName,
@@ -188,7 +159,6 @@ func (s *OutboundCallService) placeAndPersistCall(ctx context.Context, visit rep
 		Message:      message,
 		TemplateVars: vars,
 	})
-
 	requestedAt := time.Now().UTC()
 	status := "failed"
 	responseRaw := ""
@@ -231,21 +201,10 @@ func (s *OutboundCallService) placeAndPersistCall(ctx context.Context, visit rep
 	if createErr != nil {
 		return repository.OutboundCall{}, createErr
 	}
-
+	if err != nil {
+		return created, nil
+	}
 	return created, nil
-}
-
-func fallbackContact(visit repository.Visit, contact repository.StudentContact) repository.StudentContact {
-	if strings.TrimSpace(contact.StudentID) == "" {
-		contact.StudentID = visit.StudentID
-	}
-	if strings.TrimSpace(contact.StudentName) == "" {
-		contact.StudentName = visit.StudentName
-	}
-	if strings.TrimSpace(contact.GuardianName) == "" {
-		contact.GuardianName = "Guardian"
-	}
-	return contact
 }
 
 func buildExternalMedicalCallMessage(visit repository.Visit, contact repository.StudentContact) string {
@@ -255,18 +214,16 @@ func buildExternalMedicalCallMessage(visit repository.Visit, contact repository.
 	}
 	guardianName := strings.TrimSpace(contact.GuardianName)
 	if guardianName == "" {
-		guardianName = "Guardian"
+		guardianName = "家长"
 	}
-
 	destinationText := visit.Destination
 	switch strings.TrimSpace(visit.Destination) {
 	case visitDestinationLeaveSchool:
-		destinationText = "leave school for medical care"
+		destinationText = "离校就医"
 	case visitDestinationReferred:
-		destinationText = "be referred to an external hospital"
+		destinationText = "转外院就医"
 	}
-
-	return guardianName + ", hello. " + studentName + " has been advised by the school clinic to " + destinationText + ". Please follow up promptly."
+	return guardianName + "您好，学生" + studentName + "已由校医评估并安排" + destinationText + "，请尽快跟进。"
 }
 
 func shouldTrackExternalMedical(destination string) bool {

@@ -22,6 +22,7 @@ type CreateVisitInput struct {
 	StudentID   string
 	Symptoms    []string
 	Description string
+	CreatedAt   *time.Time
 }
 
 type UpdateVisitInput struct {
@@ -33,12 +34,11 @@ type UpdateVisitInput struct {
 }
 
 func NewVisitService(repo repository.VisitRepository, outboundCallService ...*OutboundCallService) *VisitService {
-	var outbound *OutboundCallService
+	service := &VisitService{repo: repo}
 	if len(outboundCallService) > 0 {
-		outbound = outboundCallService[0]
+		service.outboundCallService = outboundCallService[0]
 	}
-
-	return &VisitService{repo: repo, outboundCallService: outbound}
+	return service
 }
 
 func (s *VisitService) EnsureSeedData(ctx context.Context) error {
@@ -66,6 +66,7 @@ func (s *VisitService) Create(ctx context.Context, input CreateVisitInput) (repo
 		StudentID:   strings.TrimSpace(input.StudentID),
 		Symptoms:    symptoms,
 		Description: strings.TrimSpace(input.Description),
+		CreatedAt:   input.CreatedAt,
 	})
 }
 
@@ -78,7 +79,7 @@ func (s *VisitService) Update(ctx context.Context, id string, input UpdateVisitI
 		Diagnosis:    input.Diagnosis,
 		Prescription: input.Prescription,
 		Destination:  input.Destination,
-		FollowUpNote: trimStringPtr(input.FollowUpNote),
+		FollowUpNote: input.FollowUpNote,
 	}
 
 	if input.FollowUpAt != nil {
@@ -98,7 +99,6 @@ func (s *VisitService) Update(ctx context.Context, id string, input UpdateVisitI
 	if err != nil {
 		return repository.Visit{}, err
 	}
-
 	if s.outboundCallService != nil {
 		s.outboundCallService.TrackVisitUpdate(ctx, visit)
 	}

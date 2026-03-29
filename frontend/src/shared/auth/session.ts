@@ -1,4 +1,4 @@
-﻿export type UserRole = "doctor" | "admin";
+export type UserRole = "doctor" | "admin";
 
 export type AuthUser = {
   name: string;
@@ -28,10 +28,9 @@ export function getStoredUser() {
 
   try {
     const parsed = JSON.parse(raw) as Partial<AuthUser>;
-    if (typeof parsed.name !== "string" || !isUserRole(parsed.role)) {
+    if (!parsed || typeof parsed.name !== "string" || !isUserRole(parsed.role)) {
       return null;
     }
-
     return {
       name: parsed.name,
       role: parsed.role,
@@ -50,14 +49,13 @@ export function clearAuth() {
   window.localStorage.removeItem(USER_KEY);
 }
 
-export function hasValidSession() {
-  return Boolean(getStoredToken() && getStoredUser());
-}
-
 export function resolveHomePath(role: UserRole | null | undefined) {
   if (role === "admin") {
     return "/admin/dashboard";
   }
-
   return "/doctor/visits";
+}
+
+export function hasValidSession() {
+  return Boolean(getStoredToken() && getStoredUser());
 }

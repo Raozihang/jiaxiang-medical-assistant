@@ -32,10 +32,10 @@ func (r *MockVisitRepository) EnsureSeedData(_ context.Context) error {
 	r.visits[id] = Visit{
 		ID:          id,
 		StudentID:   "20260001",
-		StudentName: "Student-20260001",
-		ClassName:   "Grade 3 Class 2",
-		Symptoms:    []string{"fever"},
-		Description: "felt unwell after PE class",
+		StudentName: "张三",
+		ClassName:   "三年级2班",
+		Symptoms:    []string{"发热"},
+		Description: "上午体育课后感到不适",
 		Destination: "observation",
 		CreatedAt:   now.Add(-15 * time.Minute),
 		UpdatedAt:   now.Add(-15 * time.Minute),
@@ -61,7 +61,12 @@ func (r *MockVisitRepository) List(_ context.Context, params VisitListParams) (P
 	})
 
 	start, end := pageWindow(params.Page, params.PageSize, len(items))
-	return PageResult[Visit]{Items: items[start:end], Page: params.Page, PageSize: params.PageSize, Total: int64(len(items))}, nil
+	return PageResult[Visit]{
+		Items:    items[start:end],
+		Page:     params.Page,
+		PageSize: params.PageSize,
+		Total:    int64(len(items)),
+	}, nil
 }
 
 func (r *MockVisitRepository) Create(_ context.Context, input CreateVisitInput) (Visit, error) {
@@ -69,9 +74,23 @@ func (r *MockVisitRepository) Create(_ context.Context, input CreateVisitInput) 
 	defer r.mu.Unlock()
 
 	now := time.Now().UTC()
+	if input.CreatedAt != nil {
+		now = input.CreatedAt.UTC()
+	}
 	id := uuid.NewString()
-	visit := Visit{ID: id, StudentID: input.StudentID, StudentName: "Student-" + input.StudentID, ClassName: "Unknown Class", Symptoms: input.Symptoms, Description: strings.TrimSpace(input.Description), Destination: "observation", CreatedAt: now, UpdatedAt: now}
+	visit := Visit{
+		ID:          id,
+		StudentID:   input.StudentID,
+		StudentName: "学生-" + input.StudentID,
+		ClassName:   "未知班级",
+		Symptoms:    input.Symptoms,
+		Description: strings.TrimSpace(input.Description),
+		Destination: "observation",
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
 	r.visits[id] = visit
+
 	return visit, nil
 }
 
@@ -106,16 +125,20 @@ func (r *MockVisitRepository) Update(_ context.Context, id string, input UpdateV
 		visit.Destination = strings.TrimSpace(*input.Destination)
 	}
 	if input.SetFollowUpAt {
-		if input.FollowUpAt != nil {
+		if input.FollowUpAt == nil {
+			visit.FollowUpAt = nil
+		} else {
 			followUpAt := input.FollowUpAt.UTC()
 			visit.FollowUpAt = &followUpAt
-		} else {
-			visit.FollowUpAt = nil
 		}
 	}
 	if input.FollowUpNote != nil {
-		followUpNote := strings.TrimSpace(*input.FollowUpNote)
-		visit.FollowUpNote = &followUpNote
+		note := strings.TrimSpace(*input.FollowUpNote)
+		if note == "" {
+			visit.FollowUpNote = nil
+		} else {
+			visit.FollowUpNote = &note
+		}
 	}
 	visit.UpdatedAt = time.Now().UTC()
 	r.visits[id] = visit
@@ -160,17 +183,23 @@ func (r *MockVisitRepository) CountDueFollowUps(_ context.Context, now time.Time
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
+	cutoff := now.UTC()
 	var count int64
 	for _, visit := range r.visits {
 		if visit.FollowUpAt == nil {
 			continue
 		}
-		if !visit.FollowUpAt.After(now.UTC()) {
+		if !visit.FollowUpAt.After(cutoff) {
 			count++
 		}
 	}
 
 	return count, nil
+}
+
+func dayStart(now time.Time) time.Time {
+	ts := now.UTC()
+	return time.Date(ts.Year(), ts.Month(), ts.Day(), 0, 0, 0, 0, time.UTC)
 }
 
 func pageWindow(page int, pageSize int, total int) (int, int) {

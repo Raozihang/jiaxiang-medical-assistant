@@ -1,5 +1,9 @@
-﻿import { http } from "@/shared/api/http";
-import { setStoredToken, setStoredUser, type AuthUser } from "@/shared/auth/session";
+import { http } from "@/shared/api/http";
+import {
+  setStoredToken,
+  setStoredUser,
+  type AuthUser,
+} from "@/shared/auth/session";
 import type { ApiResponse } from "@/shared/types/api";
 
 type LoginResponse = {

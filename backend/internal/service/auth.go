@@ -9,7 +9,7 @@ import (
 	"github.com/jiaxiang-medical-assistant/backend/internal/config"
 )
 
-var ErrInvalidCredentials = errors.New("invalid credentials")
+var ErrInvalidCredentials = errors.New("账号或密码错误")
 
 type AuthService struct {
 	dataMode    string
@@ -50,21 +50,21 @@ func NewAuthService(cfg config.Config, dataMode string) (*AuthService, error) {
 	doctorAccount := strings.TrimSpace(cfg.Auth.DoctorAccount)
 	adminAccount := strings.TrimSpace(cfg.Auth.AdminAccount)
 	if doctorAccount == "" || adminAccount == "" {
-		return nil, errors.New("auth account config is required")
+		return nil, errors.New("医生和管理员账号配置不能为空")
 	}
 	if doctorAccount == adminAccount {
-		return nil, errors.New("doctor and admin accounts must be unique")
+		return nil, errors.New("医生和管理员账号不能相同")
 	}
 
 	doctorPassword := strings.TrimSpace(cfg.Auth.DoctorPassword)
 	adminPassword := strings.TrimSpace(cfg.Auth.AdminPassword)
 	if doctorPassword == "" || adminPassword == "" {
-		return nil, errors.New("auth password config is required")
+		return nil, errors.New("医生和管理员密码配置不能为空")
 	}
 
 	secret := []byte(strings.TrimSpace(cfg.Auth.JWTSecret))
 	if len(secret) == 0 {
-		return nil, errors.New("auth jwt secret is required")
+		return nil, errors.New("JWT 密钥配置不能为空")
 	}
 
 	expiresIn := cfg.Auth.JWTExpiresIn

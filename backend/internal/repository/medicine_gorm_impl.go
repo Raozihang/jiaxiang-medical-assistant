@@ -34,16 +34,16 @@ func (r *GormMedicineRepository) EnsureSeedData(ctx context.Context) error {
 	rows := []model.Medicine{
 		{
 			ID:            uuid.New(),
-			Name:          "Ibuprofen Tablets",
-			Specification: "0.2g*24",
+			Name:          "布洛芬片",
+			Specification: "0.2g*24片",
 			Stock:         120,
 			SafeStock:     50,
 			ExpiryDate:    now.AddDate(1, 0, 0),
-			Warnings:      datatypes.JSON([]byte(`["allergy risk"]`)),
+			Warnings:      datatypes.JSON([]byte(`["对布洛芬过敏者禁用"]`)),
 		},
 		{
 			ID:            uuid.New(),
-			Name:          "Medical Gauze",
+			Name:          "医用纱布",
 			Specification: "10cm*10cm",
 			Stock:         30,
 			SafeStock:     40,

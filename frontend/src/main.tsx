@@ -6,7 +6,7 @@ import "@/styles/global.css";
 const rootElement = document.getElementById("root");
 
 if (!rootElement) {
-  throw new Error("Root element not found");
+  throw new Error("根元素未找到");
 }
 
 ReactDOM.createRoot(rootElement).render(<App />);

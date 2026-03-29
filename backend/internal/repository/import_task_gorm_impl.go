@@ -23,9 +23,11 @@ func (r *GormImportTaskRepository) Create(ctx context.Context, task ImportTask) 
 	if err != nil {
 		return ImportTask{}, err
 	}
+
 	if err := r.db.WithContext(ctx).Create(&row).Error; err != nil {
 		return ImportTask{}, err
 	}
+
 	return toImportTaskDTO(row)
 }
 
@@ -34,6 +36,7 @@ func (r *GormImportTaskRepository) Update(ctx context.Context, task ImportTask) 
 	if err != nil {
 		return ImportTask{}, err
 	}
+
 	result := r.db.WithContext(ctx).Model(&model.ImportTask{}).Where("id = ?", row.ID).Updates(map[string]any{
 		"status":     row.Status,
 		"total":      row.Total,
@@ -48,6 +51,7 @@ func (r *GormImportTaskRepository) Update(ctx context.Context, task ImportTask) 
 	if result.RowsAffected == 0 {
 		return ImportTask{}, ErrNotFound
 	}
+
 	return task, nil
 }
 
@@ -59,6 +63,7 @@ func (r *GormImportTaskRepository) GetByID(ctx context.Context, id string) (Impo
 		}
 		return ImportTask{}, err
 	}
+
 	return toImportTaskDTO(row)
 }
 
@@ -67,15 +72,17 @@ func (r *GormImportTaskRepository) List(ctx context.Context) ([]ImportTask, erro
 	if err := r.db.WithContext(ctx).Order("updated_at desc").Find(&rows).Error; err != nil {
 		return nil, err
 	}
-	items := make([]ImportTask, 0, len(rows))
+
+	result := make([]ImportTask, 0, len(rows))
 	for _, row := range rows {
 		item, err := toImportTaskDTO(row)
 		if err != nil {
 			return nil, err
 		}
-		items = append(items, item)
+		result = append(result, item)
 	}
-	return items, nil
+
+	return result, nil
 }
 
 func toImportTaskModel(task ImportTask) (model.ImportTask, error) {
@@ -83,6 +90,7 @@ func toImportTaskModel(task ImportTask) (model.ImportTask, error) {
 	if err != nil {
 		return model.ImportTask{}, err
 	}
+
 	return model.ImportTask{
 		ID:        task.ID,
 		Status:    task.Status,
@@ -102,5 +110,15 @@ func toImportTaskDTO(row model.ImportTask) (ImportTask, error) {
 			return ImportTask{}, err
 		}
 	}
-	return ImportTask{ID: row.ID, Status: row.Status, Total: row.Total, Success: row.Success, Failed: row.Failed, Errors: taskErrors, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}, nil
+
+	return ImportTask{
+		ID:        row.ID,
+		Status:    row.Status,
+		Total:     row.Total,
+		Success:   row.Success,
+		Failed:    row.Failed,
+		Errors:    taskErrors,
+		CreatedAt: row.CreatedAt,
+		UpdatedAt: row.UpdatedAt,
+	}, nil
 }

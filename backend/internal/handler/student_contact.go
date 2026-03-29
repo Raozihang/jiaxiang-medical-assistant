@@ -45,7 +45,7 @@ func (h *StudentContactHandler) List(c *gin.Context) {
 func (h *StudentContactHandler) Update(c *gin.Context) {
 	var req UpdateStudentContactRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, 1001, "invalid request body")
+		response.Fail(c, http.StatusBadRequest, 1001, "请求参数无效")
 		return
 	}
 

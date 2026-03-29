@@ -1,8 +1,9 @@
-﻿import { LockOutlined, UserOutlined } from "@ant-design/icons";
+import { LockOutlined, MedicineBoxOutlined, UserOutlined } from "@ant-design/icons";
 import { Button, Card, Form, Input, Space, Typography, message } from "antd";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { login } from "@/shared/api/auth";
+import { getErrorMessage } from "@/shared/api/helpers";
 import { resolveHomePath } from "@/shared/auth/session";
 import { env } from "@/shared/config/env";
 
@@ -10,29 +11,6 @@ type LoginForm = {
   account: string;
   password: string;
 };
-
-function getErrorMessage(error: unknown, fallback: string) {
-  if (
-    typeof error === "object" &&
-    error !== null &&
-    "response" in error &&
-    typeof error.response === "object" &&
-    error.response !== null &&
-    "data" in error.response &&
-    typeof error.response.data === "object" &&
-    error.response.data !== null &&
-    "message" in error.response.data &&
-    typeof error.response.data.message === "string"
-  ) {
-    return error.response.data.message;
-  }
-
-  if (error instanceof Error && error.message) {
-    return error.message;
-  }
-
-  return fallback;
-}
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -53,26 +31,32 @@ export function LoginPage() {
   };
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "grid",
-        placeItems: "center",
-        background: "linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%)",
-        padding: 24,
-      }}
-    >
+    <div className="auth-page">
+      <div className="auth-bubbles">
+        <div className="auth-bubble" />
+        <div className="auth-bubble" />
+        <div className="auth-bubble" />
+      </div>
       {contextHolder}
-      <Card style={{ width: 420, maxWidth: "100%", borderRadius: 12 }}>
+      <Card className="auth-card">
         <Space direction="vertical" size={24} style={{ width: "100%" }}>
           <div style={{ textAlign: "center" }}>
+            <div className="auth-logo" style={{ margin: "0 auto 16px" }}>
+              <MedicineBoxOutlined />
+            </div>
             <Typography.Title level={3} style={{ marginBottom: 4 }}>
-              欢迎登录
+              欢迎使用
             </Typography.Title>
-            <Typography.Text type="secondary">{env.appTitle}</Typography.Text>
+            <Typography.Text type="secondary" style={{ fontSize: 15 }}>
+              {env.appTitle}
+            </Typography.Text>
           </div>
           <Form<LoginForm> layout="vertical" onFinish={(values) => void handleFinish(values)}>
-            <Form.Item label="账号" name="account" rules={[{ required: true, message: "请输入账号" }]}>
+            <Form.Item
+              label="账号"
+              name="account"
+              rules={[{ required: true, message: "请输入账号" }]}
+            >
               <Input
                 prefix={<UserOutlined style={{ color: "rgba(0,0,0,0.25)" }} />}
                 placeholder="doctor / admin"
@@ -80,7 +64,11 @@ export function LoginPage() {
                 size="large"
               />
             </Form.Item>
-            <Form.Item label="密码" name="password" rules={[{ required: true, message: "请输入密码" }]}>
+            <Form.Item
+              label="密码"
+              name="password"
+              rules={[{ required: true, message: "请输入密码" }]}
+            >
               <Input.Password
                 prefix={<LockOutlined style={{ color: "rgba(0,0,0,0.25)" }} />}
                 placeholder="请输入密码"
@@ -88,10 +76,22 @@ export function LoginPage() {
                 size="large"
               />
             </Form.Item>
-            <Button type="primary" htmlType="submit" block size="large" loading={submitting}>
+            <Button
+              type="primary"
+              htmlType="submit"
+              block
+              size="large"
+              loading={submitting}
+              style={{ marginTop: 8, height: 44, fontWeight: 600 }}
+            >
               登录
             </Button>
           </Form>
+          <div style={{ textAlign: "center" }}>
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              v0.1.0 · 仅限授权人员使用
+            </Typography.Text>
+          </div>
         </Space>
       </Card>
     </div>

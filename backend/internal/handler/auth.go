@@ -25,7 +25,7 @@ func NewAuthHandler(authService *service.AuthService) *AuthHandler {
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, 1001, "invalid request body")
+		response.Fail(c, http.StatusBadRequest, 1001, "请求参数无效")
 		return
 	}
 
@@ -34,11 +34,11 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		Password: req.Password,
 	})
 	if errors.Is(err, service.ErrInvalidCredentials) {
-		response.Fail(c, http.StatusUnauthorized, 1002, "invalid credentials")
+		response.Fail(c, http.StatusUnauthorized, 1002, "账号或密码错误")
 		return
 	}
 	if err != nil {
-		response.Fail(c, http.StatusInternalServerError, 5000, "internal error")
+		response.Fail(c, http.StatusInternalServerError, 5000, "服务内部错误")
 		return
 	}
 

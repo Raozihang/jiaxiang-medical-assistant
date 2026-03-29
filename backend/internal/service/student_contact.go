@@ -39,14 +39,12 @@ func (s *StudentContactService) UpdateByStudentID(ctx context.Context, studentID
 	if trimmedStudentID == "" {
 		return repository.StudentContact{}, ErrInvalidInput
 	}
-
 	if input.GuardianPhone != nil {
-		trimmedPhone := strings.TrimSpace(*input.GuardianPhone)
-		if trimmedPhone == "" {
-			empty := ""
-			input.GuardianPhone = &empty
+		rawPhone := strings.TrimSpace(*input.GuardianPhone)
+		if rawPhone == "" {
+			input.GuardianPhone = &rawPhone
 		} else {
-			phone := normalizeContactPhone(trimmedPhone)
+			phone := normalizeContactPhone(rawPhone)
 			if phone == "" {
 				return repository.StudentContact{}, ErrInvalidInput
 			}

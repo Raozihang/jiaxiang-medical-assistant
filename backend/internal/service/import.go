@@ -16,12 +16,13 @@ type ImportService struct {
 }
 
 type VisitImportItem struct {
-	StudentID    string   `json:"student_id"`
-	Symptoms     []string `json:"symptoms"`
-	Description  string   `json:"description"`
-	Diagnosis    string   `json:"diagnosis"`
-	Prescription []string `json:"prescription"`
-	Destination  string   `json:"destination"`
+	StudentID    string     `json:"student_id"`
+	Symptoms     []string   `json:"symptoms"`
+	Description  string     `json:"description"`
+	Diagnosis    string     `json:"diagnosis"`
+	Prescription []string   `json:"prescription"`
+	Destination  string     `json:"destination"`
+	CreatedAt    *time.Time `json:"created_at"`
 }
 
 func NewImportService(visitRepo repository.VisitRepository, taskRepo repository.ImportTaskRepository) *ImportService {
@@ -30,7 +31,16 @@ func NewImportService(visitRepo repository.VisitRepository, taskRepo repository.
 
 func (s *ImportService) SubmitVisits(ctx context.Context, items []VisitImportItem) (repository.ImportTask, error) {
 	now := time.Now().UTC()
-	task := repository.ImportTask{ID: uuid.NewString(), Status: "processing", Total: len(items), Errors: []repository.ImportTaskError{}, CreatedAt: now, UpdatedAt: now}
+	task := repository.ImportTask{
+		ID:        uuid.NewString(),
+		Status:    "processing",
+		Total:     len(items),
+		Success:   0,
+		Failed:    0,
+		Errors:    []repository.ImportTaskError{},
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
 
 	task, err := s.taskRepo.Create(ctx, task)
 	if err != nil {
@@ -40,14 +50,25 @@ func (s *ImportService) SubmitVisits(ctx context.Context, items []VisitImportIte
 	for idx, item := range items {
 		if strings.TrimSpace(item.StudentID) == "" {
 			task.Failed++
-			task.Errors = append(task.Errors, repository.ImportTaskError{Index: idx, Message: "student_id is required"})
+			task.Errors = append(task.Errors, repository.ImportTaskError{
+				Index:   idx,
+				Message: "学号不能为空",
+			})
 			continue
 		}
 
-		created, createErr := s.visitRepo.Create(ctx, repository.CreateVisitInput{StudentID: strings.TrimSpace(item.StudentID), Symptoms: item.Symptoms, Description: strings.TrimSpace(item.Description)})
+		created, createErr := s.visitRepo.Create(ctx, repository.CreateVisitInput{
+			StudentID:   strings.TrimSpace(item.StudentID),
+			Symptoms:    item.Symptoms,
+			Description: strings.TrimSpace(item.Description),
+			CreatedAt:   item.CreatedAt,
+		})
 		if createErr != nil {
 			task.Failed++
-			task.Errors = append(task.Errors, repository.ImportTaskError{Index: idx, Message: fmt.Sprintf("create visit failed: %v", createErr)})
+			task.Errors = append(task.Errors, repository.ImportTaskError{
+				Index:   idx,
+				Message: fmt.Sprintf("创建就诊记录失败: %v", createErr),
+			})
 			continue
 		}
 
@@ -63,9 +84,13 @@ func (s *ImportService) SubmitVisits(ctx context.Context, items []VisitImportIte
 				prescription := item.Prescription
 				input.Prescription = &prescription
 			}
+
 			if _, updateErr := s.visitRepo.Update(ctx, created.ID, input); updateErr != nil {
 				task.Failed++
-				task.Errors = append(task.Errors, repository.ImportTaskError{Index: idx, Message: fmt.Sprintf("update visit failed: %v", updateErr)})
+				task.Errors = append(task.Errors, repository.ImportTaskError{
+					Index:   idx,
+					Message: fmt.Sprintf("更新就诊记录失败: %v", updateErr),
+				})
 				continue
 			}
 		}
@@ -95,22 +120,31 @@ func (s *ImportService) ListTasks(ctx context.Context, pageParams repository.Pag
 	if err != nil {
 		return repository.PageResult[repository.ImportTask]{}, err
 	}
+
 	start, end := pageWindow(pageParams.Page, pageParams.PageSize, len(items))
-	return repository.PageResult[repository.ImportTask]{Items: items[start:end], Page: pageParams.Page, PageSize: pageParams.PageSize, Total: int64(len(items))}, nil
+	return repository.PageResult[repository.ImportTask]{
+		Items:    items[start:end],
+		Page:     pageParams.Page,
+		PageSize: pageParams.PageSize,
+		Total:    int64(len(items)),
+	}, nil
 }
 
 func pageWindow(page int, pageSize int, total int) (int, int) {
 	if total == 0 {
 		return 0, 0
 	}
+
 	start := (page - 1) * pageSize
 	if start >= total {
 		return total, total
 	}
+
 	end := start + pageSize
 	if end > total {
 		end = total
 	}
+
 	return start, end
 }
 

@@ -55,13 +55,13 @@ func (h *OutboundCallHandler) Retry(c *gin.Context) {
 
 func (h *OutboundCallHandler) AliyunCallback(c *gin.Context) {
 	if !h.authorizeCallback(c.GetHeader("X-Webhook-Secret")) {
-		response.Fail(c, http.StatusUnauthorized, 1003, "callback authorization failed")
+		response.Fail(c, http.StatusUnauthorized, 1003, "回调鉴权失败")
 		return
 	}
 
 	var req service.AliyunCallbackInput
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, http.StatusBadRequest, 1001, "invalid request body")
+		response.Fail(c, http.StatusBadRequest, 1001, "请求参数无效")
 		return
 	}
 
