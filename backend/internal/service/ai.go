@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"log"
 	"sort"
 	"strings"
 )
@@ -100,19 +101,47 @@ func (s *AIService) resolveProvider() AIProvider {
 }
 
 func (s *AIService) Analyze(ctx context.Context, input AnalyzeInput) (AnalyzeResult, error) {
-	return s.resolveProvider().Analyze(ctx, input)
+	provider := s.resolveProvider()
+	result, err := provider.Analyze(ctx, input)
+	if err == nil {
+		return result, nil
+	}
+
+	log.Printf("AI analyze failed with provider %T, falling back to rule-based provider: %v", provider, err)
+	return defaultAIProvider.Analyze(ctx, input)
 }
 
 func (s *AIService) Triage(ctx context.Context, input TriageInput) (TriageResult, error) {
-	return s.resolveProvider().Triage(ctx, input)
+	provider := s.resolveProvider()
+	result, err := provider.Triage(ctx, input)
+	if err == nil {
+		return result, nil
+	}
+
+	log.Printf("AI triage failed with provider %T, falling back to rule-based provider: %v", provider, err)
+	return defaultAIProvider.Triage(ctx, input)
 }
 
 func (s *AIService) Recommend(ctx context.Context, input RecommendInput) (RecommendResult, error) {
-	return s.resolveProvider().Recommend(ctx, input)
+	provider := s.resolveProvider()
+	result, err := provider.Recommend(ctx, input)
+	if err == nil {
+		return result, nil
+	}
+
+	log.Printf("AI recommend failed with provider %T, falling back to rule-based provider: %v", provider, err)
+	return defaultAIProvider.Recommend(ctx, input)
 }
 
 func (s *AIService) InteractionCheck(ctx context.Context, input InteractionCheckInput) (InteractionCheckResult, error) {
-	return s.resolveProvider().InteractionCheck(ctx, input)
+	provider := s.resolveProvider()
+	result, err := provider.InteractionCheck(ctx, input)
+	if err == nil {
+		return result, nil
+	}
+
+	log.Printf("AI interaction check failed with provider %T, falling back to rule-based provider: %v", provider, err)
+	return defaultAIProvider.InteractionCheck(ctx, input)
 }
 
 func (p *ruleBasedAIProvider) Analyze(_ context.Context, input AnalyzeInput) (AnalyzeResult, error) {

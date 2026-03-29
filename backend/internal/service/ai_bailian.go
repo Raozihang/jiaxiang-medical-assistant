@@ -23,7 +23,7 @@ func NewBailianProvider(apiKey, model, baseURL string) AIProvider {
 		apiKey:  apiKey,
 		model:   model,
 		baseURL: strings.TrimRight(baseURL, "/"),
-		client:  &http.Client{Timeout: 30 * time.Second},
+		client:  &http.Client{Timeout: 60 * time.Second},
 	}
 }
 

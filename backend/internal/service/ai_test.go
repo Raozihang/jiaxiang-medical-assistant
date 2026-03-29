@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"testing"
 )
 
@@ -48,6 +49,24 @@ type customAIProviderStub struct {
 	recommendCalled        bool
 	interactionCheckCalled bool
 	analyzeResult          AnalyzeResult
+}
+
+type failingAIProviderStub struct{}
+
+func (s *failingAIProviderStub) Analyze(_ context.Context, _ AnalyzeInput) (AnalyzeResult, error) {
+	return AnalyzeResult{}, errors.New("provider unavailable")
+}
+
+func (s *failingAIProviderStub) Triage(_ context.Context, _ TriageInput) (TriageResult, error) {
+	return TriageResult{}, errors.New("provider unavailable")
+}
+
+func (s *failingAIProviderStub) Recommend(_ context.Context, _ RecommendInput) (RecommendResult, error) {
+	return RecommendResult{}, errors.New("provider unavailable")
+}
+
+func (s *failingAIProviderStub) InteractionCheck(_ context.Context, _ InteractionCheckInput) (InteractionCheckResult, error) {
+	return InteractionCheckResult{}, errors.New("provider unavailable")
 }
 
 func (s *customAIProviderStub) Analyze(_ context.Context, _ AnalyzeInput) (AnalyzeResult, error) {
@@ -97,5 +116,55 @@ func TestAIServiceAnalyzeDelegatesToCustomProvider(t *testing.T) {
 	}
 	if result.Confidence != 0.99 {
 		t.Fatalf("expected custom confidence, got %f", result.Confidence)
+	}
+}
+
+func TestAIServiceFallsBackToRuleProviderWhenCustomProviderFails(t *testing.T) {
+	svc := NewAIServiceWithProvider(&failingAIProviderStub{})
+
+	analyzeResult, err := svc.Analyze(context.Background(), AnalyzeInput{
+		Symptoms:    []string{"headache"},
+		Description: "student feels dizzy",
+		Temperature: 37.4,
+	})
+	if err != nil {
+		t.Fatalf("expected analyze fallback to succeed, got error: %v", err)
+	}
+	if analyzeResult.RiskLevel == "" {
+		t.Fatalf("expected analyze fallback result")
+	}
+
+	triageResult, err := svc.Triage(context.Background(), TriageInput{
+		Symptoms:    []string{"headache"},
+		Description: "student feels dizzy",
+		Temperature: 37.4,
+	})
+	if err != nil {
+		t.Fatalf("expected triage fallback to succeed, got error: %v", err)
+	}
+	if triageResult.TriageLevel == "" || triageResult.Destination == "" {
+		t.Fatalf("expected triage fallback result")
+	}
+
+	recommendResult, err := svc.Recommend(context.Background(), RecommendInput{
+		Diagnosis:   "upper respiratory infection",
+		Symptoms:    []string{"cough"},
+		Destination: "observation",
+	})
+	if err != nil {
+		t.Fatalf("expected recommend fallback to succeed, got error: %v", err)
+	}
+	if recommendResult.PlanVersion != "mock-v1" {
+		t.Fatalf("expected recommend fallback plan version mock-v1, got %s", recommendResult.PlanVersion)
+	}
+
+	interactionResult, err := svc.InteractionCheck(context.Background(), InteractionCheckInput{
+		Medicines: []string{"aspirin", "ibuprofen"},
+	})
+	if err != nil {
+		t.Fatalf("expected interaction fallback to succeed, got error: %v", err)
+	}
+	if !interactionResult.HasInteraction {
+		t.Fatalf("expected interaction fallback to detect known pair")
 	}
 }

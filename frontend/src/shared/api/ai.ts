@@ -9,6 +9,8 @@ import {
   unwrapApiData,
 } from "@/shared/api/helpers";
 
+const AI_REQUEST_TIMEOUT_MS = 60_000;
+
 export type AnalyzeSymptomsPayload = {
   visit_id?: string;
   symptoms: string[];
@@ -271,22 +273,21 @@ function parseInteractionResult(payload: unknown): InteractionCheckResult {
 }
 
 export async function analyzeSymptoms(payload: AnalyzeSymptomsPayload) {
-  const response = await http.post("/ai/analyze", payload);
+  const response = await http.post("/ai/analyze", payload, { timeout: AI_REQUEST_TIMEOUT_MS });
   return parseAnalyzeResult(response.data);
 }
 
 export async function triageVisit(payload: TriagePayload) {
-  const response = await http.post("/ai/triage", payload);
+  const response = await http.post("/ai/triage", payload, { timeout: AI_REQUEST_TIMEOUT_MS });
   return parseTriageResult(response.data);
 }
 
 export async function recommendMedicines(payload: RecommendPayload) {
-  const response = await http.post("/ai/recommend", payload);
+  const response = await http.post("/ai/recommend", payload, { timeout: AI_REQUEST_TIMEOUT_MS });
   return parseRecommendResult(response.data);
 }
 
 export async function checkMedicineInteractions(payload: InteractionCheckPayload) {
-  const response = await http.post("/ai/interaction-check", payload);
+  const response = await http.post("/ai/interaction-check", payload, { timeout: AI_REQUEST_TIMEOUT_MS });
   return parseInteractionResult(response.data);
 }
-
