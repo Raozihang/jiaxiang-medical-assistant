@@ -1,11 +1,4 @@
 import {
-  BulbOutlined,
-  MedicineBoxOutlined,
-  SafetyOutlined,
-  SearchOutlined,
-  ThunderboltOutlined,
-} from "@ant-design/icons";
-import {
   Alert,
   Button,
   Card,
@@ -408,19 +401,19 @@ export function VisitDetailPage() {
         title="AI 辅助决策"
         extra={
           <Space>
-            <Button loading={aiLoading.analyze} icon={<BulbOutlined />} onClick={() => void runAnalyze()}>
+            <Button loading={aiLoading.analyze} onClick={() => void runAnalyze()}>
               症状结构化
             </Button>
-            <Button loading={aiLoading.triage} icon={<SearchOutlined />} onClick={() => void runTriage()}>
+            <Button loading={aiLoading.triage} onClick={() => void runTriage()}>
               智能分诊
             </Button>
-            <Button loading={aiLoading.recommend} icon={<MedicineBoxOutlined />} onClick={() => void runRecommend()}>
+            <Button loading={aiLoading.recommend} onClick={() => void runRecommend()}>
               药品推荐
             </Button>
-            <Button loading={aiLoading.interaction} icon={<SafetyOutlined />} onClick={() => void runInteractionCheck()}>
+            <Button loading={aiLoading.interaction} onClick={() => void runInteractionCheck()}>
               相互作用检查
             </Button>
-            <Button type="primary" icon={<ThunderboltOutlined />} onClick={() => void runAllAI()}>
+            <Button type="primary" onClick={() => void runAllAI()}>
               一键生成建议
             </Button>
           </Space>

@@ -1,4 +1,3 @@
-import { ReloadOutlined } from "@ant-design/icons";
 import { Button, Card, InputNumber, message, Progress, Space, Table, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useCallback, useEffect, useState } from "react";
@@ -88,14 +87,9 @@ export function MedicinesPage() {
   return (
     <Space direction="vertical" size={16} style={{ width: "100%" }}>
       {contextHolder}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <Typography.Title level={3} style={{ marginBottom: 0 }}>
-          药品库存管理
-        </Typography.Title>
-        <Button icon={<ReloadOutlined />} onClick={() => void fetchList()}>
-          刷新
-        </Button>
-      </div>
+      <Typography.Title level={3} style={{ marginBottom: 0 }}>
+        药品库存管理
+      </Typography.Title>
       <Card>
         <Space style={{ marginBottom: 12 }}>
           <Typography.Text>库存变动数量：</Typography.Text>
@@ -111,8 +105,6 @@ export function MedicinesPage() {
           dataSource={rows}
           loading={loading}
           pagination={false}
-          rowClassName={(row) => (row.stock < row.safeStock ? "medicine-row-warning" : "")}
-          locale={{ emptyText: "暂无药品数据" }}
         />
       </Card>
     </Space>

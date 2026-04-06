@@ -1,4 +1,3 @@
-import { EyeOutlined, ReloadOutlined } from "@ant-design/icons";
 import { Button, Card, Space, Table, Tag, Typography } from "antd";
 import type { ColumnsType, TablePaginationConfig } from "antd/es/table";
 import { useCallback, useEffect, useState } from "react";
@@ -56,24 +55,18 @@ export function VisitsPage() {
   const columns: ColumnsType<VisitRow> = [
     { title: "学生姓名", dataIndex: "studentName" },
     { title: "班级", dataIndex: "className" },
-    { title: "症状", dataIndex: "symptom", ellipsis: true },
+    { title: "症状", dataIndex: "symptom" },
     {
       title: "优先级",
       dataIndex: "level",
-      width: 100,
       render: (value: VisitRow["level"]) =>
-        value === "urgent" ? (
-          <Tag color="red" bordered={false}>紧急</Tag>
-        ) : (
-          <Tag color="cyan" bordered={false}>普通</Tag>
-        ),
+        value === "urgent" ? <Tag color="red">紧急</Tag> : <Tag color="blue">普通</Tag>,
     },
-    { title: "创建时间", dataIndex: "createdAt", width: 180 },
+    { title: "创建时间", dataIndex: "createdAt" },
     {
       title: "操作",
-      width: 100,
       render: (_, row) => (
-        <Button type="link" icon={<EyeOutlined />} onClick={() => navigate(`/doctor/visit/${row.id}`)}>
+        <Button type="link" onClick={() => navigate(`/doctor/visit/${row.id}`)}>
           查看
         </Button>
       ),
@@ -82,21 +75,15 @@ export function VisitsPage() {
 
   return (
     <Space direction="vertical" size={16} style={{ width: "100%" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <Typography.Title level={3} style={{ marginBottom: 0 }}>
-          就诊队列
-        </Typography.Title>
-        <Button icon={<ReloadOutlined />} onClick={() => void fetchList(page)}>
-          刷新
-        </Button>
-      </div>
+      <Typography.Title level={3} style={{ marginBottom: 0 }}>
+        就诊队列
+      </Typography.Title>
       <Card>
         <Table
           rowKey="id"
           columns={columns}
           dataSource={rows}
           loading={loading}
-          locale={{ emptyText: "暂无就诊记录" }}
           pagination={
             {
               current: page,
@@ -112,4 +99,3 @@ export function VisitsPage() {
     </Space>
   );
 }
-
