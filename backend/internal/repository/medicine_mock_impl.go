@@ -29,27 +29,33 @@ func (r *MockMedicineRepository) EnsureSeedData(_ context.Context) error {
 	now := time.Now().UTC()
 	id1 := uuid.NewString()
 	r.medicines[id1] = Medicine{
-		ID:            id1,
-		Name:          "布洛芬片",
-		Specification: "0.2g*24片",
-		Stock:         120,
-		SafeStock:     50,
-		ExpiryDate:    now.AddDate(1, 0, 0),
-		Warnings:      []string{"对布洛芬过敏者禁用"},
-		CreatedAt:     now,
-		UpdatedAt:     now,
+		ID:                   id1,
+		Name:                 "Ibuprofen Tablets",
+		Specification:        "0.2g*24 tablets",
+		Stock:                120,
+		SafeStock:            50,
+		ExpiryDate:           now.AddDate(1, 0, 0),
+		Warnings:             []string{"Do not use in students allergic to ibuprofen"},
+		RecommendedDosage:    "0.2g",
+		RecommendedFrequency: "every 6-8 hours as needed",
+		RecommendedDuration:  "up to 3 days",
+		UsageInstructions:    "take after meals; stop if stomach discomfort occurs",
+		CreatedAt:            now,
+		UpdatedAt:            now,
 	}
+
 	id2 := uuid.NewString()
 	r.medicines[id2] = Medicine{
-		ID:            id2,
-		Name:          "医用纱布",
-		Specification: "10cm*10cm",
-		Stock:         30,
-		SafeStock:     40,
-		ExpiryDate:    now.AddDate(0, 1, 0),
-		Warnings:      []string{},
-		CreatedAt:     now,
-		UpdatedAt:     now,
+		ID:                   id2,
+		Name:                 "Medical Gauze",
+		Specification:        "10cm*10cm",
+		Stock:                30,
+		SafeStock:            40,
+		ExpiryDate:           now.AddDate(0, 1, 0),
+		Warnings:             []string{},
+		UsageInstructions:    "external use only",
+		CreatedAt:            now,
+		UpdatedAt:            now,
 	}
 
 	return nil
@@ -78,6 +84,25 @@ func (r *MockMedicineRepository) List(_ context.Context, params MedicineListPara
 		PageSize: params.PageSize,
 		Total:    int64(len(items)),
 	}, nil
+}
+
+func (r *MockMedicineRepository) ListAll(_ context.Context) ([]Medicine, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	items := make([]Medicine, 0, len(r.medicines))
+	threshold := time.Now().UTC().AddDate(0, 0, 30)
+	for _, medicine := range r.medicines {
+		medicine.IsLowStock = medicine.Stock < medicine.SafeStock
+		medicine.IsExpiringSoon = !medicine.ExpiryDate.After(threshold)
+		items = append(items, medicine)
+	}
+
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].Name < items[j].Name
+	})
+
+	return items, nil
 }
 
 func (r *MockMedicineRepository) Inbound(_ context.Context, input StockChangeInput) (Medicine, error) {

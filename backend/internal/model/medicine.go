@@ -16,6 +16,10 @@ type Medicine struct {
 	SafeStock     int            `gorm:"not null;default:20" json:"safe_stock"`
 	ExpiryDate    time.Time      `gorm:"type:date;not null" json:"expiry_date"`
 	Warnings      datatypes.JSON `gorm:"type:jsonb" json:"warnings"`
+	RecommendedDosage    string         `gorm:"size:128;not null;default:''" json:"recommended_dosage"`
+	RecommendedFrequency string         `gorm:"size:128;not null;default:''" json:"recommended_frequency"`
+	RecommendedDuration  string         `gorm:"size:128;not null;default:''" json:"recommended_duration"`
+	UsageInstructions    string         `gorm:"size:255;not null;default:''" json:"usage_instructions"`
 	CreatedAt     time.Time      `json:"created_at"`
 	UpdatedAt     time.Time      `json:"updated_at"`
 }

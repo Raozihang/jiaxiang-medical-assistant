@@ -28,7 +28,7 @@ func registerRoutes(engine *gin.Engine, cfg config.Config, db *gorm.DB) (func(),
 	visitService := service.NewVisitService(visitRepo, outboundCallService)
 	medicineService := service.NewMedicineService(medicineRepo)
 	reportService := service.NewReportService(visitRepo, medicineRepo)
-	aiService := buildAIService(cfg)
+	aiService := buildAIService(cfg, medicineRepo)
 	importService := service.NewImportService(visitRepo, importTaskRepo)
 	notificationService := service.NewNotificationService(notificationLogRepo)
 	studentContactService := service.NewStudentContactService(studentContactRepo)
@@ -136,14 +136,14 @@ func registerRoutes(engine *gin.Engine, cfg config.Config, db *gorm.DB) (func(),
 	return cancelRunner, nil
 }
 
-func buildAIService(cfg config.Config) *service.AIService {
+func buildAIService(cfg config.Config, medicineRepo repository.MedicineRepository) *service.AIService {
 	if cfg.AI.Provider == "bailian" && cfg.AI.APIKey != "" {
 		provider := service.NewBailianProvider(cfg.AI.APIKey, cfg.AI.Model, cfg.AI.BaseURL)
 		log.Printf("AI provider: bailian (model=%s)", cfg.AI.Model)
-		return service.NewAIServiceWithProvider(provider)
+		return service.NewAIServiceWithDependencies(provider, medicineRepo)
 	}
 	log.Printf("AI provider: rule-based (set AI_PROVIDER=bailian to use LLM)")
-	return service.NewAIService()
+	return service.NewAIServiceWithDependencies(nil, medicineRepo)
 }
 
 func buildRepositories(dataMode string, db *gorm.DB) (repository.VisitRepository, repository.MedicineRepository) {

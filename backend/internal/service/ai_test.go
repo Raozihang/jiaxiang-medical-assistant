@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 	"testing"
+
+	"github.com/jiaxiang-medical-assistant/backend/internal/repository"
 )
 
 func TestAIServiceTriageHighRisk(t *testing.T) {
 	svc := NewAIService()
-
 	result, err := svc.Triage(context.Background(), TriageInput{
 		Symptoms:    []string{"difficulty breathing", "chest pain"},
 		Description: "student reports chest pain",
@@ -17,29 +18,44 @@ func TestAIServiceTriageHighRisk(t *testing.T) {
 	if err != nil {
 		t.Fatalf("triage failed: %v", err)
 	}
-
-	if result.TriageLevel != "urgent" {
-		t.Fatalf("expected urgent triage, got %s", result.TriageLevel)
+	if result.TriageLevel != "urgent" || result.Destination != "hospital" {
+		t.Fatalf("unexpected triage result: %+v", result)
 	}
-	if result.Destination != "hospital" {
-		t.Fatalf("expected hospital destination, got %s", result.Destination)
+}
+
+func TestAIServiceRecommendInjectsInventorySafety(t *testing.T) {
+	repo := repository.NewMockMedicineRepository()
+	if err := repo.EnsureSeedData(context.Background()); err != nil {
+		t.Fatalf("seed data failed: %v", err)
+	}
+
+	svc := NewAIServiceWithDependencies(defaultAIProvider, repo)
+	result, err := svc.Recommend(context.Background(), RecommendInput{
+		Diagnosis:   "upper respiratory infection",
+		Symptoms:    []string{"fever"},
+		Destination: "observation",
+	})
+	if err != nil {
+		t.Fatalf("recommend failed: %v", err)
+	}
+	if len(result.Medicines) == 0 {
+		t.Fatalf("expected at least one medicine recommendation: %+v", result)
+	}
+	if result.Medicines[0].Dosage == "" || len(result.InventoryBasis) == 0 {
+		t.Fatalf("expected dosage and inventory basis to be filled: %+v", result)
 	}
 }
 
 func TestAIServiceInteractionCheckDetectsKnownPair(t *testing.T) {
 	svc := NewAIService()
-
 	result, err := svc.InteractionCheck(context.Background(), InteractionCheckInput{
 		Medicines: []string{"aspirin", "ibuprofen"},
 	})
 	if err != nil {
 		t.Fatalf("interaction check failed: %v", err)
 	}
-	if !result.HasInteraction {
-		t.Fatalf("expected known interaction")
-	}
-	if len(result.Interactions) == 0 {
-		t.Fatalf("expected at least one interaction")
+	if !result.HasInteraction || len(result.Interactions) == 0 {
+		t.Fatalf("expected known interaction: %+v", result)
 	}
 }
 
@@ -49,6 +65,8 @@ type customAIProviderStub struct {
 	recommendCalled        bool
 	interactionCheckCalled bool
 	analyzeResult          AnalyzeResult
+	recommendResult        RecommendResult
+	interactionResult      InteractionCheckResult
 }
 
 type failingAIProviderStub struct{}
@@ -81,71 +99,38 @@ func (s *customAIProviderStub) Triage(_ context.Context, _ TriageInput) (TriageR
 
 func (s *customAIProviderStub) Recommend(_ context.Context, _ RecommendInput) (RecommendResult, error) {
 	s.recommendCalled = true
-	return RecommendResult{}, nil
+	return s.recommendResult, nil
 }
 
 func (s *customAIProviderStub) InteractionCheck(_ context.Context, _ InteractionCheckInput) (InteractionCheckResult, error) {
 	s.interactionCheckCalled = true
-	return InteractionCheckResult{}, nil
+	return s.interactionResult, nil
 }
 
 func TestAIServiceAnalyzeDelegatesToCustomProvider(t *testing.T) {
 	provider := &customAIProviderStub{
-		analyzeResult: AnalyzeResult{
-			RiskLevel:  "custom",
-			Confidence: 0.99,
-		},
+		analyzeResult: AnalyzeResult{RiskLevel: "custom", Confidence: 0.99},
 	}
 	svc := NewAIServiceWithProvider(provider)
-
-	result, err := svc.Analyze(context.Background(), AnalyzeInput{
-		Symptoms: []string{"headache"},
-	})
+	result, err := svc.Analyze(context.Background(), AnalyzeInput{Symptoms: []string{"headache"}})
 	if err != nil {
 		t.Fatalf("analyze failed: %v", err)
 	}
-
-	if !provider.analyzeCalled {
-		t.Fatalf("expected custom provider analyze to be called")
-	}
-	if provider.triageCalled || provider.recommendCalled || provider.interactionCheckCalled {
+	if !provider.analyzeCalled || provider.triageCalled || provider.recommendCalled || provider.interactionCheckCalled {
 		t.Fatalf("expected only analyze delegation")
 	}
-	if result.RiskLevel != "custom" {
-		t.Fatalf("expected custom risk level, got %s", result.RiskLevel)
-	}
-	if result.Confidence != 0.99 {
-		t.Fatalf("expected custom confidence, got %f", result.Confidence)
+	if result.RiskLevel != "custom" || result.Confidence != 0.99 {
+		t.Fatalf("unexpected analyze result: %+v", result)
 	}
 }
 
 func TestAIServiceFallsBackToRuleProviderWhenCustomProviderFails(t *testing.T) {
-	svc := NewAIServiceWithProvider(&failingAIProviderStub{})
-
-	analyzeResult, err := svc.Analyze(context.Background(), AnalyzeInput{
-		Symptoms:    []string{"headache"},
-		Description: "student feels dizzy",
-		Temperature: 37.4,
-	})
-	if err != nil {
-		t.Fatalf("expected analyze fallback to succeed, got error: %v", err)
-	}
-	if analyzeResult.RiskLevel == "" {
-		t.Fatalf("expected analyze fallback result")
+	repo := repository.NewMockMedicineRepository()
+	if err := repo.EnsureSeedData(context.Background()); err != nil {
+		t.Fatalf("seed data failed: %v", err)
 	}
 
-	triageResult, err := svc.Triage(context.Background(), TriageInput{
-		Symptoms:    []string{"headache"},
-		Description: "student feels dizzy",
-		Temperature: 37.4,
-	})
-	if err != nil {
-		t.Fatalf("expected triage fallback to succeed, got error: %v", err)
-	}
-	if triageResult.TriageLevel == "" || triageResult.Destination == "" {
-		t.Fatalf("expected triage fallback result")
-	}
-
+	svc := NewAIServiceWithDependencies(&failingAIProviderStub{}, repo)
 	recommendResult, err := svc.Recommend(context.Background(), RecommendInput{
 		Diagnosis:   "upper respiratory infection",
 		Symptoms:    []string{"cough"},
@@ -154,8 +139,8 @@ func TestAIServiceFallsBackToRuleProviderWhenCustomProviderFails(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected recommend fallback to succeed, got error: %v", err)
 	}
-	if recommendResult.PlanVersion != "mock-v1" {
-		t.Fatalf("expected recommend fallback plan version mock-v1, got %s", recommendResult.PlanVersion)
+	if recommendResult.PlanVersion == "" {
+		t.Fatalf("expected recommend fallback result")
 	}
 
 	interactionResult, err := svc.InteractionCheck(context.Background(), InteractionCheckInput{

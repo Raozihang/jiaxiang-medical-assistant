@@ -72,6 +72,9 @@ export type RecommendResult = {
   medicines: MedicineRecommendation[];
   advice: string[];
   contraindications: string[];
+  riskFlags: string[];
+  inventoryBasis: string[];
+  usedWebSearch: boolean;
   raw: unknown;
 };
 
@@ -92,6 +95,8 @@ export type InteractionCheckResult = {
   severity: string;
   warnings: InteractionWarning[];
   safe: boolean;
+  riskFlags: string[];
+  usedWebSearch: boolean;
   raw: unknown;
 };
 
@@ -245,6 +250,9 @@ function parseRecommendResult(payload: unknown): RecommendResult {
     contraindications: toStringArray(
       pickFirst(record, ["contraindications", "forbidden", "warnings"]),
     ),
+    riskFlags: toStringArray(pickFirst(record, ["risk_flags", "alerts"])),
+    inventoryBasis: toStringArray(pickFirst(record, ["inventory_basis", "rag_sources"])),
+    usedWebSearch: toBoolean(pickFirst(record, ["used_web_search", "usedWebSearch"])) ?? false,
     raw: data,
   };
 }
@@ -268,6 +276,8 @@ function parseInteractionResult(payload: unknown): InteractionCheckResult {
     safe:
       toBoolean(pickFirst(record, ["safe", "is_safe", "compatible"])) ??
       (!hasInteraction || warnings.length === 0),
+    riskFlags: toStringArray(pickFirst(record, ["risk_flags", "alerts"])),
+    usedWebSearch: toBoolean(pickFirst(record, ["used_web_search", "usedWebSearch"])) ?? false,
     raw: data,
   };
 }

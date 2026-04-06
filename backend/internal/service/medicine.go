@@ -34,6 +34,10 @@ func (s *MedicineService) List(ctx context.Context, input MedicineListInput) (re
 	})
 }
 
+func (s *MedicineService) ListAll(ctx context.Context) ([]repository.Medicine, error) {
+	return s.repo.ListAll(ctx)
+}
+
 func (s *MedicineService) Inbound(ctx context.Context, input StockChangeInput) (repository.Medicine, error) {
 	return s.repo.Inbound(ctx, repository.StockChangeInput{
 		MedicineID: strings.TrimSpace(input.MedicineID),

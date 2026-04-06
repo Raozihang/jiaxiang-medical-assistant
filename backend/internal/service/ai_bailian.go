@@ -27,12 +27,16 @@ func NewBailianProvider(apiKey, model, baseURL string) AIProvider {
 	}
 }
 
-// OpenAI-compatible request/response types for DashScope.
-
 type chatRequest struct {
-	Model       string        `json:"model"`
-	Messages    []chatMessage `json:"messages"`
-	Temperature float64       `json:"temperature,omitempty"`
+	Model         string             `json:"model"`
+	Messages      []chatMessage      `json:"messages"`
+	Temperature   float64            `json:"temperature,omitempty"`
+	EnableSearch  bool               `json:"enable_search,omitempty"`
+	SearchOptions *chatSearchOptions `json:"search_options,omitempty"`
+}
+
+type chatSearchOptions struct {
+	ForcedSearch bool `json:"forced_search,omitempty"`
 }
 
 type chatMessage struct {
@@ -54,14 +58,18 @@ type chatError struct {
 	Code    string `json:"code"`
 }
 
-func (p *bailianProvider) call(ctx context.Context, system, user string) (string, error) {
+func (p *bailianProvider) call(ctx context.Context, system, user string, enableSearch bool) (string, error) {
 	body := chatRequest{
 		Model: p.model,
 		Messages: []chatMessage{
 			{Role: "system", Content: system},
 			{Role: "user", Content: user},
 		},
-		Temperature: 0.3,
+		Temperature: 0.2,
+	}
+	if enableSearch {
+		body.EnableSearch = true
+		body.SearchOptions = &chatSearchOptions{ForcedSearch: true}
 	}
 
 	payload, err := json.Marshal(body)
@@ -86,7 +94,6 @@ func (p *bailianProvider) call(ctx context.Context, system, user string) (string
 	if err != nil {
 		return "", fmt.Errorf("read response: %w", err)
 	}
-
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("dashscope returned %d: %s", resp.StatusCode, string(respBody))
 	}
@@ -105,11 +112,8 @@ func (p *bailianProvider) call(ctx context.Context, system, user string) (string
 	return strings.TrimSpace(chatResp.Choices[0].Message.Content), nil
 }
 
-// extractJSON finds the first JSON object or array in the text, handling
-// markdown code fences that LLMs sometimes wrap around their output.
 func extractJSON(text string) string {
 	s := strings.TrimSpace(text)
-	// Strip markdown code fence if present.
 	if strings.HasPrefix(s, "```") {
 		if idx := strings.Index(s, "\n"); idx != -1 {
 			s = s[idx+1:]
@@ -122,25 +126,18 @@ func extractJSON(text string) string {
 	return s
 }
 
-// ---- Analyze ----
-
-const analyzeSystemPrompt = `你是一个校园医务室的 AI 辅助分析系统。根据学生的症状和体温，输出 JSON 格式的分析结果。
-
-要求：
-1. risk_level: "low"、"medium" 或 "high"
-2. confidence: 0.0-1.0 之间的置信度
-3. matched_signals: 从症状中匹配到的关键信号列表
-4. possible_causes: 可能的病因列表（中文）
-5. suggested_actions: 建议措施列表（中文）
-
-仅输出 JSON，不要输出其他内容。示例格式：
-{"risk_level":"medium","confidence":0.75,"matched_signals":["发烧","头痛"],"possible_causes":["上呼吸道感染"],"suggested_actions":["留观并每30分钟测量体温"]}`
+const analyzeSystemPrompt = `You are a school clinic analysis assistant.
+Return JSON only with:
+- risk_level: low|medium|high
+- confidence: number 0..1
+- matched_signals: string[]
+- possible_causes: string[]
+- suggested_actions: string[]`
 
 func (p *bailianProvider) Analyze(ctx context.Context, input AnalyzeInput) (AnalyzeResult, error) {
-	userMsg := fmt.Sprintf("症状列表: %s\n描述: %s\n体温: %.1f°C",
+	userMsg := fmt.Sprintf("Symptoms: %s\nDescription: %s\nTemperature: %.1fC",
 		strings.Join(input.Symptoms, ", "), input.Description, input.Temperature)
-
-	raw, err := p.call(ctx, analyzeSystemPrompt, userMsg)
+	raw, err := p.call(ctx, analyzeSystemPrompt, userMsg, false)
 	if err != nil {
 		return AnalyzeResult{}, fmt.Errorf("AI analyze: %w", err)
 	}
@@ -152,27 +149,18 @@ func (p *bailianProvider) Analyze(ctx context.Context, input AnalyzeInput) (Anal
 	return result, nil
 }
 
-// ---- Triage ----
-
-const triageSystemPrompt = `你是一个校园医务室的 AI 智能分诊系统。根据学生的症状和体温，判断分诊级别和去向。
-
-要求：
-1. triage_level: "routine"（普通）、"priority"（优先）或 "urgent"（紧急）
-2. destination: "classroom"（返回教室）、"observation"（留观）或 "hospital"（转院）
-3. reason: 分诊理由（中文）
-4. review_in_minutes: 建议复查间隔（分钟数）
-5. suggested_actions: 建议措施列表（中文）
-
-紧急信号包括：胸痛、呼吸困难、抽搐、晕厥、呕血、体温≥39.5°C。
-发现紧急信号时必须判定为 urgent 并建议转院。
-
-仅输出 JSON，不要输出其他内容。`
+const triageSystemPrompt = `You are a school clinic triage assistant.
+Return JSON only with:
+- triage_level: routine|priority|urgent
+- destination: classroom|observation|hospital
+- reason: string
+- review_in_minutes: integer
+- suggested_actions: string[]`
 
 func (p *bailianProvider) Triage(ctx context.Context, input TriageInput) (TriageResult, error) {
-	userMsg := fmt.Sprintf("症状列表: %s\n描述: %s\n体温: %.1f°C",
+	userMsg := fmt.Sprintf("Symptoms: %s\nDescription: %s\nTemperature: %.1fC",
 		strings.Join(input.Symptoms, ", "), input.Description, input.Temperature)
-
-	raw, err := p.call(ctx, triageSystemPrompt, userMsg)
+	raw, err := p.call(ctx, triageSystemPrompt, userMsg, false)
 	if err != nil {
 		return TriageResult{}, fmt.Errorf("AI triage: %w", err)
 	}
@@ -184,25 +172,33 @@ func (p *bailianProvider) Triage(ctx context.Context, input TriageInput) (Triage
 	return result, nil
 }
 
-// ---- Recommend ----
-
-const recommendSystemPrompt = `你是一个校园医务室的 AI 诊疗建议系统。根据诊断结果和症状，给出护理计划和药品建议。
-
-要求：
-1. plan_version: 固定为 "ai-v1"
-2. care_plan: 护理计划步骤列表（中文）
-3. medicine_hints: 药品建议列表（中文，仅建议非处方药，注明"仅供参考，需医生审核"）
-4. follow_up: 复诊建议（中文）
-
-重要：所有建议仅供医生参考，最终决策权在医生。
-
-仅输出 JSON，不要输出其他内容。`
+const recommendSystemPrompt = `You are a school clinic medication recommendation assistant.
+Use the provided local medicine inventory as the primary RAG source.
+Rules:
+- recommend only from the provided local inventory
+- prefer medicines with stock > 0 and not expiring soon
+- include dosage, frequency, duration, reason, caution
+- if no safe local option exists, return an empty medicines array and explain why
+- if web search is enabled, use it only as a safety cross-check
+Return JSON only with:
+- plan_version: string
+- medicines: [{name,dosage,frequency,duration,reason,caution}]
+- advice: string[]
+- contraindications: string[]
+- risk_flags: string[]`
 
 func (p *bailianProvider) Recommend(ctx context.Context, input RecommendInput) (RecommendResult, error) {
-	userMsg := fmt.Sprintf("诊断: %s\n症状: %s\n去向: %s",
-		input.Diagnosis, strings.Join(input.Symptoms, ", "), input.Destination)
-
-	raw, err := p.call(ctx, recommendSystemPrompt, userMsg)
+	userMsg := fmt.Sprintf(
+		"Diagnosis: %s\nSymptoms: %s\nTriage: %s\nDestination: %s\nAllergies: %s\nRisk flags: %s\nLocal inventory RAG:\n%s",
+		input.Diagnosis,
+		strings.Join(input.Symptoms, ", "),
+		input.TriageLevel,
+		input.Destination,
+		strings.Join(input.Allergies, ", "),
+		strings.Join(input.RiskFlags, ", "),
+		input.RAGContext,
+	)
+	raw, err := p.call(ctx, recommendSystemPrompt, userMsg, input.UseWebSearch)
 	if err != nil {
 		return RecommendResult{}, fmt.Errorf("AI recommend: %w", err)
 	}
@@ -214,25 +210,25 @@ func (p *bailianProvider) Recommend(ctx context.Context, input RecommendInput) (
 	return result, nil
 }
 
-// ---- InteractionCheck ----
-
-const interactionCheckSystemPrompt = `你是一个校园医务室的 AI 药物相互作用检查系统。检查给定药品之间是否存在相互作用。
-
-要求：
-1. has_interaction: 是否存在相互作用（布尔值）
-2. risk_level: "low"、"medium" 或 "high"
-3. interactions: 相互作用列表，每项包含：
-   - pair: 药品对（数组，两个药品名）
-   - severity: 严重程度（"low"/"medium"/"high"）
-   - effect: 相互作用效果（中文）
-4. advice: 用药建议列表（中文）
-
-仅输出 JSON，不要输出其他内容。`
+const interactionCheckSystemPrompt = `You are a school clinic medication safety assistant.
+Use the provided local medicine RAG data first, and use web search only when enabled for safety verification.
+Return JSON only with:
+- has_interaction: boolean
+- risk_level: low|medium|high
+- interactions: [{pair,severity,effect}]
+- advice: string[]
+- warnings: [{title,severity,description,suggestion}]
+- risk_flags: string[]`
 
 func (p *bailianProvider) InteractionCheck(ctx context.Context, input InteractionCheckInput) (InteractionCheckResult, error) {
-	userMsg := fmt.Sprintf("需要检查以下药品的相互作用：%s", strings.Join(input.Medicines, ", "))
-
-	raw, err := p.call(ctx, interactionCheckSystemPrompt, userMsg)
+	userMsg := fmt.Sprintf(
+		"Medicines: %s\nStudent ID: %s\nRisk flags: %s\nLocal medicine RAG:\n%s",
+		strings.Join(input.Medicines, ", "),
+		input.StudentID,
+		strings.Join(input.RiskFlags, ", "),
+		input.RAGContext,
+	)
+	raw, err := p.call(ctx, interactionCheckSystemPrompt, userMsg, input.UseWebSearch)
 	if err != nil {
 		return InteractionCheckResult{}, fmt.Errorf("AI interaction check: %w", err)
 	}

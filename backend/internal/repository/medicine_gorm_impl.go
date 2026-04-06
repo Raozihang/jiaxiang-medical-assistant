@@ -33,22 +33,27 @@ func (r *GormMedicineRepository) EnsureSeedData(ctx context.Context) error {
 	now := time.Now().UTC()
 	rows := []model.Medicine{
 		{
-			ID:            uuid.New(),
-			Name:          "布洛芬片",
-			Specification: "0.2g*24片",
-			Stock:         120,
-			SafeStock:     50,
-			ExpiryDate:    now.AddDate(1, 0, 0),
-			Warnings:      datatypes.JSON([]byte(`["对布洛芬过敏者禁用"]`)),
+			ID:                   uuid.New(),
+			Name:                 "Ibuprofen Tablets",
+			Specification:        "0.2g*24 tablets",
+			Stock:                120,
+			SafeStock:            50,
+			ExpiryDate:           now.AddDate(1, 0, 0),
+			Warnings:             datatypes.JSON([]byte(`["Do not use in students allergic to ibuprofen"]`)),
+			RecommendedDosage:    "0.2g",
+			RecommendedFrequency: "every 6-8 hours as needed",
+			RecommendedDuration:  "up to 3 days",
+			UsageInstructions:    "take after meals; stop if stomach discomfort occurs",
 		},
 		{
-			ID:            uuid.New(),
-			Name:          "医用纱布",
-			Specification: "10cm*10cm",
-			Stock:         30,
-			SafeStock:     40,
-			ExpiryDate:    now.AddDate(0, 1, 0),
-			Warnings:      datatypes.JSON([]byte(`[]`)),
+			ID:                uuid.New(),
+			Name:              "Medical Gauze",
+			Specification:     "10cm*10cm",
+			Stock:             30,
+			SafeStock:         40,
+			ExpiryDate:        now.AddDate(0, 1, 0),
+			Warnings:          datatypes.JSON([]byte(`[]`)),
+			UsageInstructions: "external use only",
 		},
 	}
 
@@ -79,6 +84,20 @@ func (r *GormMedicineRepository) List(ctx context.Context, params MedicineListPa
 		PageSize: params.PageSize,
 		Total:    total,
 	}, nil
+}
+
+func (r *GormMedicineRepository) ListAll(ctx context.Context) ([]Medicine, error) {
+	var rows []model.Medicine
+	if err := r.db.WithContext(ctx).Order("name asc").Find(&rows).Error; err != nil {
+		return nil, err
+	}
+
+	items := make([]Medicine, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, toMedicineDTO(row))
+	}
+
+	return items, nil
 }
 
 func (r *GormMedicineRepository) Inbound(ctx context.Context, input StockChangeInput) (Medicine, error) {
@@ -155,16 +174,20 @@ func toMedicineDTO(row model.Medicine) Medicine {
 
 	threshold := time.Now().UTC().AddDate(0, 0, 30)
 	return Medicine{
-		ID:             row.ID.String(),
-		Name:           row.Name,
-		Specification:  row.Specification,
-		Stock:          row.Stock,
-		SafeStock:      row.SafeStock,
-		ExpiryDate:     row.ExpiryDate,
-		Warnings:       warnings,
-		IsLowStock:     row.Stock < row.SafeStock,
-		IsExpiringSoon: !row.ExpiryDate.After(threshold),
-		CreatedAt:      row.CreatedAt,
-		UpdatedAt:      row.UpdatedAt,
+		ID:                   row.ID.String(),
+		Name:                 row.Name,
+		Specification:        row.Specification,
+		Stock:                row.Stock,
+		SafeStock:            row.SafeStock,
+		ExpiryDate:           row.ExpiryDate,
+		Warnings:             warnings,
+		RecommendedDosage:    row.RecommendedDosage,
+		RecommendedFrequency: row.RecommendedFrequency,
+		RecommendedDuration:  row.RecommendedDuration,
+		UsageInstructions:    row.UsageInstructions,
+		IsLowStock:           row.Stock < row.SafeStock,
+		IsExpiringSoon:       !row.ExpiryDate.After(threshold),
+		CreatedAt:            row.CreatedAt,
+		UpdatedAt:            row.UpdatedAt,
 	}
 }

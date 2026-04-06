@@ -79,6 +79,10 @@ type Medicine struct {
 	SafeStock      int       `json:"safe_stock"`
 	ExpiryDate     time.Time `json:"expiry_date"`
 	Warnings       []string  `json:"warnings"`
+	RecommendedDosage    string    `json:"recommended_dosage"`
+	RecommendedFrequency string    `json:"recommended_frequency"`
+	RecommendedDuration  string    `json:"recommended_duration"`
+	UsageInstructions    string    `json:"usage_instructions"`
 	IsLowStock     bool      `json:"is_low_stock"`
 	IsExpiringSoon bool      `json:"is_expiring_soon"`
 	CreatedAt      time.Time `json:"created_at"`
@@ -96,6 +100,7 @@ type StockChangeInput struct {
 
 type MedicineRepository interface {
 	List(ctx context.Context, params MedicineListParams) (PageResult[Medicine], error)
+	ListAll(ctx context.Context) ([]Medicine, error)
 	Inbound(ctx context.Context, input StockChangeInput) (Medicine, error)
 	Outbound(ctx context.Context, input StockChangeInput) (Medicine, error)
 	CountWarnings(ctx context.Context, now time.Time) (int64, error)
