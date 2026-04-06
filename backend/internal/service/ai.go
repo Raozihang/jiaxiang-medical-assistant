@@ -280,11 +280,11 @@ func (s *AIService) loadMedicineKnowledge(ctx context.Context) []MedicineKnowled
 			Stock:                row.Stock,
 			SafeStock:            row.SafeStock,
 			ExpiryDate:           row.ExpiryDate,
-			Warnings:             uniqueStrings(row.Warnings),
-			RecommendedDosage:    strings.TrimSpace(row.RecommendedDosage),
-			RecommendedFrequency: strings.TrimSpace(row.RecommendedFrequency),
-			RecommendedDuration:  strings.TrimSpace(row.RecommendedDuration),
-			UsageInstructions:    strings.TrimSpace(row.UsageInstructions),
+			Warnings:             localizeTextList(uniqueStrings(row.Warnings)),
+			RecommendedDosage:    localizeMedicalText(strings.TrimSpace(row.RecommendedDosage)),
+			RecommendedFrequency: localizeMedicalText(strings.TrimSpace(row.RecommendedFrequency)),
+			RecommendedDuration:  localizeMedicalText(strings.TrimSpace(row.RecommendedDuration)),
+			UsageInstructions:    localizeMedicalText(strings.TrimSpace(row.UsageInstructions)),
 			IsLowStock:           row.IsLowStock,
 			IsExpiringSoon:       row.IsExpiringSoon,
 		})
@@ -610,6 +610,10 @@ func normalizeRecommendResult(result RecommendResult, input RecommendInput, inve
 		if item.Duration == "" {
 			item.Duration = medicine.RecommendedDuration
 		}
+		item.Dosage = localizeMedicalText(item.Dosage)
+		item.Frequency = localizeMedicalText(item.Frequency)
+		item.Duration = localizeMedicalText(item.Duration)
+		item.Reason = localizeMedicalText(item.Reason)
 		item.Caution = joinWithSemicolon(item.Caution, medicine.UsageInstructions, strings.Join(medicine.Warnings, "; "))
 		if medicine.IsLowStock {
 			item.Caution = joinWithSemicolon(item.Caution, fmt.Sprintf("库存偏低：剩余 %d", medicine.Stock))
@@ -621,6 +625,8 @@ func normalizeRecommendResult(result RecommendResult, input RecommendInput, inve
 		if item.Reason == "" {
 			item.Reason = "基于本地库存、推荐用法与RAG知识综合推荐"
 		}
+		item.Caution = localizeMedicalText(item.Caution)
+		item.Reason = localizeMedicalText(item.Reason)
 		final = append(final, item)
 		result.InventoryBasis = append(result.InventoryBasis, medicineBasis(medicine))
 	}
@@ -639,9 +645,10 @@ func normalizeRecommendResult(result RecommendResult, input RecommendInput, inve
 		}
 	}
 	result.Advice = uniqueStrings(append(result.Advice, result.CarePlan...))
+	result.Advice = localizeTextList(result.Advice)
 	result.RiskFlags = uniqueStrings(result.RiskFlags)
-	result.Contraindications = uniqueStrings(result.Contraindications)
-	result.InventoryBasis = uniqueStrings(result.InventoryBasis)
+	result.Contraindications = localizeTextList(uniqueStrings(result.Contraindications))
+	result.InventoryBasis = localizeTextList(uniqueStrings(result.InventoryBasis))
 	return syncRecommendLegacy(result)
 }
 
@@ -660,6 +667,7 @@ func normalizeInteractionResult(result InteractionCheckResult, local Interaction
 		result.RiskLevel = "low"
 	}
 	result.Advice = uniqueStrings(append(result.Advice, local.Advice...))
+	result.Advice = localizeTextList(result.Advice)
 	result.RiskFlags = uniqueStrings(append(result.RiskFlags, riskFlags...))
 	if len(result.Warnings) == 0 {
 		for _, interaction := range result.Interactions {
@@ -680,6 +688,14 @@ func normalizeInteractionResult(result InteractionCheckResult, local Interaction
 				Suggestion:  "发药前请核对该药品的本地警示信息。",
 			})
 		}
+	}
+	for i := range result.Interactions {
+		result.Interactions[i].Effect = localizeMedicalText(result.Interactions[i].Effect)
+	}
+	for i := range result.Warnings {
+		result.Warnings[i].Title = localizeMedicalText(result.Warnings[i].Title)
+		result.Warnings[i].Description = localizeMedicalText(result.Warnings[i].Description)
+		result.Warnings[i].Suggestion = localizeMedicalText(result.Warnings[i].Suggestion)
 	}
 	result.Safe = !result.HasInteraction
 	return result
@@ -849,4 +865,59 @@ func uniqueStrings(items []string) []string {
 		result = append(result, value)
 	}
 	return result
+}
+
+func localizeTextList(items []string) []string {
+	result := make([]string, 0, len(items))
+	for _, item := range items {
+		if value := localizeMedicalText(item); strings.TrimSpace(value) != "" {
+			result = append(result, value)
+		}
+	}
+	return uniqueStrings(result)
+}
+
+func localizeMedicalText(value string) string {
+	text := strings.TrimSpace(value)
+	if text == "" {
+		return ""
+	}
+
+	replacements := map[string]string{
+		"Do not use in students allergic to ibuprofen":                                           "对布洛芬过敏者禁用",
+		"Do not administer Ibuprofen solely for cough relief as it is clinically inappropriate.": "不建议仅因咳嗽症状使用布洛芬，该用药场景并不适宜。",
+		"take after meals; stop if stomach discomfort occurs":                                    "建议饭后服用；如出现胃部不适应立即停用",
+		"every 6-8 hours as needed":                                                              "必要时每6到8小时一次",
+		"up to 3 days":                                                                           "最多连续使用3天",
+		"external use only":                                                                      "仅限外用",
+		"review the prescription with a doctor before dispensing":                                "发药前请由医生复核当前处方。",
+		"review local medicine warnings before dispensing":                                       "发药前请核对该药品的本地警示信息。",
+		"increased gastrointestinal risk":                                                        "胃肠道不良反应风险增加",
+		"increased gastrointestinal bleeding risk":                                               "胃肠道出血风险增加",
+		"excessive drowsiness":                                                                   "嗜睡风险增加",
+		"duplicate analgesic monitoring needed":                                                  "存在重复止痛用药风险，需加强观察",
+	}
+	if localized, ok := replacements[text]; ok {
+		return localized
+	}
+
+	text = strings.ReplaceAll(text, "Do not use in students allergic to ibuprofen", "对布洛芬过敏者禁用")
+	text = strings.ReplaceAll(text, "take after meals", "建议饭后服用")
+	text = strings.ReplaceAll(text, "stop if stomach discomfort occurs", "如出现胃部不适应立即停用")
+	text = strings.ReplaceAll(text, "every 6-8 hours as needed", "必要时每6到8小时一次")
+	text = strings.ReplaceAll(text, "up to 3 days", "最多连续使用3天")
+	text = strings.ReplaceAll(text, "external use only", "仅限外用")
+	text = strings.ReplaceAll(text, "clinically inappropriate", "不适宜")
+	text = strings.ReplaceAll(text, "inappropriate", "不适宜")
+	text = strings.ReplaceAll(text, "solely for cough relief", "仅用于缓解咳嗽")
+	text = strings.ReplaceAll(text, "Do not administer", "不建议使用")
+	text = strings.ReplaceAll(text, "Ibuprofen", "布洛芬")
+	text = strings.ReplaceAll(text, "ibuprofen", "布洛芬")
+	text = strings.ReplaceAll(text, "Gauze", "纱布")
+	text = strings.ReplaceAll(text, "Tablets", "片")
+	text = strings.ReplaceAll(text, "tablets", "片")
+	text = strings.ReplaceAll(text, " + ", " + ")
+	text = strings.TrimSpace(strings.TrimSuffix(text, "."))
+
+	return text
 }

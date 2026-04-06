@@ -28,11 +28,12 @@ func NewBailianProvider(apiKey, model, baseURL string) AIProvider {
 }
 
 type chatRequest struct {
-	Model         string             `json:"model"`
-	Messages      []chatMessage      `json:"messages"`
-	Temperature   float64            `json:"temperature,omitempty"`
-	EnableSearch  bool               `json:"enable_search,omitempty"`
-	SearchOptions *chatSearchOptions `json:"search_options,omitempty"`
+	Model          string             `json:"model"`
+	Messages       []chatMessage      `json:"messages"`
+	Temperature    float64            `json:"temperature,omitempty"`
+	EnableSearch   bool               `json:"enable_search,omitempty"`
+	EnableThinking *bool              `json:"enable_thinking,omitempty"`
+	SearchOptions  *chatSearchOptions `json:"search_options,omitempty"`
 }
 
 type chatSearchOptions struct {
@@ -59,13 +60,15 @@ type chatError struct {
 }
 
 func (p *bailianProvider) call(ctx context.Context, system, user string, enableSearch bool) (string, error) {
+	enableThinking := false
 	body := chatRequest{
 		Model: p.model,
 		Messages: []chatMessage{
 			{Role: "system", Content: system},
 			{Role: "user", Content: user},
 		},
-		Temperature: 0.2,
+		Temperature:    0.2,
+		EnableThinking: &enableThinking,
 	}
 	if enableSearch {
 		body.EnableSearch = true
@@ -124,6 +127,53 @@ func extractJSON(text string) string {
 		s = strings.TrimSpace(s)
 	}
 	return s
+}
+
+type recommendResultWire struct {
+	PlanVersion       string                   `json:"plan_version"`
+	CarePlan          any                      `json:"care_plan"`
+	MedicineHints     any                      `json:"medicine_hints"`
+	FollowUp          string                   `json:"follow_up"`
+	Medicines         []MedicineRecommendation `json:"medicines"`
+	Advice            any                      `json:"advice"`
+	Contraindications any                      `json:"contraindications"`
+	RiskFlags         any                      `json:"risk_flags"`
+	InventoryBasis    any                      `json:"inventory_basis"`
+}
+
+func toStringSlice(value any) []string {
+	switch v := value.(type) {
+	case nil:
+		return nil
+	case string:
+		if strings.TrimSpace(v) == "" {
+			return nil
+		}
+		return []string{strings.TrimSpace(v)}
+	case []any:
+		result := make([]string, 0, len(v))
+		for _, item := range v {
+			text := strings.TrimSpace(fmt.Sprint(item))
+			if text != "" {
+				result = append(result, text)
+			}
+		}
+		return result
+	case []string:
+		result := make([]string, 0, len(v))
+		for _, item := range v {
+			if text := strings.TrimSpace(item); text != "" {
+				result = append(result, text)
+			}
+		}
+		return result
+	default:
+		text := strings.TrimSpace(fmt.Sprint(v))
+		if text == "" {
+			return nil
+		}
+		return []string{text}
+	}
 }
 
 const analyzeSystemPrompt = `你是校医务室症状分析助手。
@@ -202,11 +252,21 @@ func (p *bailianProvider) Recommend(ctx context.Context, input RecommendInput) (
 		return RecommendResult{}, fmt.Errorf("AI recommend: %w", err)
 	}
 
-	var result RecommendResult
-	if err := json.Unmarshal([]byte(extractJSON(raw)), &result); err != nil {
+	var wire recommendResultWire
+	if err := json.Unmarshal([]byte(extractJSON(raw)), &wire); err != nil {
 		return RecommendResult{}, fmt.Errorf("parse AI recommend response: %w (raw: %s)", err, raw)
 	}
-	return result, nil
+	return RecommendResult{
+		PlanVersion:       strings.TrimSpace(wire.PlanVersion),
+		CarePlan:          toStringSlice(wire.CarePlan),
+		MedicineHints:     toStringSlice(wire.MedicineHints),
+		FollowUp:          strings.TrimSpace(wire.FollowUp),
+		Medicines:         wire.Medicines,
+		Advice:            toStringSlice(wire.Advice),
+		Contraindications: toStringSlice(wire.Contraindications),
+		RiskFlags:         toStringSlice(wire.RiskFlags),
+		InventoryBasis:    toStringSlice(wire.InventoryBasis),
+	}, nil
 }
 
 const interactionCheckSystemPrompt = `你是校医务室用药安全审查助手。

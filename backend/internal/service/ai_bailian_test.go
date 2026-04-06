@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -44,6 +45,9 @@ func TestBailianProviderRecommendUsesSearchWhenRequested(t *testing.T) {
 	srv := newTestBailianServer(t, fakeResult, func(req chatRequest) {
 		if !req.EnableSearch {
 			t.Fatalf("expected enable_search=true")
+		}
+		if req.EnableThinking == nil || *req.EnableThinking {
+			t.Fatalf("expected enable_thinking=false")
 		}
 		if req.SearchOptions == nil || !req.SearchOptions.ForcedSearch {
 			t.Fatalf("expected forced search to be enabled")
@@ -129,5 +133,37 @@ func TestBailianProviderHandlesMarkdownFence(t *testing.T) {
 	}
 	if result.RiskLevel != "low" {
 		t.Fatalf("expected low, got %s", result.RiskLevel)
+	}
+}
+
+func TestBailianProviderRecommendAcceptsStringContraindications(t *testing.T) {
+	raw := `{
+		"plan_version": "1.0",
+		"medicines": [],
+		"contraindications": "本地库存中暂无适用于当前症状的安全药品",
+		"risk_flags": ["no_suitable_medication_in_stock"]
+	}`
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(chatResponse{
+			Choices: []chatChoice{
+				{Message: chatMessage{Role: "assistant", Content: raw}},
+			},
+		})
+	}))
+	defer srv.Close()
+
+	provider := NewBailianProvider("test-key", "qwen3.6-plus", srv.URL)
+	result, err := provider.Recommend(context.Background(), RecommendInput{
+		Diagnosis:   "cough",
+		Symptoms:    []string{"cough"},
+		Destination: "classroom",
+	})
+	if err != nil {
+		t.Fatalf("recommend failed: %v", err)
+	}
+	if len(result.Contraindications) != 1 || !strings.Contains(result.Contraindications[0], "安全药品") {
+		t.Fatalf("unexpected contraindications: %+v", result.Contraindications)
 	}
 }

@@ -106,7 +106,7 @@ func Load() Config {
 		AI: AIConfig{
 			Provider: getEnv("AI_PROVIDER", "rule"),
 			APIKey:   getEnv("AI_API_KEY", ""),
-			Model:    getEnv("AI_MODEL", "qwen3.5-plus"),
+			Model:    getEnv("AI_MODEL", "qwen3.6-plus"),
 			BaseURL:  getEnv("AI_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1"),
 		},
 		Report: ReportConfig{

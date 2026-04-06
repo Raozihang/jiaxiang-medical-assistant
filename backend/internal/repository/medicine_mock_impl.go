@@ -30,32 +30,32 @@ func (r *MockMedicineRepository) EnsureSeedData(_ context.Context) error {
 	id1 := uuid.NewString()
 	r.medicines[id1] = Medicine{
 		ID:                   id1,
-		Name:                 "Ibuprofen Tablets",
-		Specification:        "0.2g*24 tablets",
+		Name:                 "布洛芬片",
+		Specification:        "0.2g*24片",
 		Stock:                120,
 		SafeStock:            50,
 		ExpiryDate:           now.AddDate(1, 0, 0),
-		Warnings:             []string{"Do not use in students allergic to ibuprofen"},
+		Warnings:             []string{"对布洛芬过敏者禁用"},
 		RecommendedDosage:    "0.2g",
-		RecommendedFrequency: "every 6-8 hours as needed",
-		RecommendedDuration:  "up to 3 days",
-		UsageInstructions:    "take after meals; stop if stomach discomfort occurs",
+		RecommendedFrequency: "必要时每6到8小时一次",
+		RecommendedDuration:  "最多连续使用3天",
+		UsageInstructions:    "建议饭后服用；如出现胃部不适应立即停用",
 		CreatedAt:            now,
 		UpdatedAt:            now,
 	}
 
 	id2 := uuid.NewString()
 	r.medicines[id2] = Medicine{
-		ID:                   id2,
-		Name:                 "Medical Gauze",
-		Specification:        "10cm*10cm",
-		Stock:                30,
-		SafeStock:            40,
-		ExpiryDate:           now.AddDate(0, 1, 0),
-		Warnings:             []string{},
-		UsageInstructions:    "external use only",
-		CreatedAt:            now,
-		UpdatedAt:            now,
+		ID:                id2,
+		Name:              "医用纱布",
+		Specification:     "10cm*10cm",
+		Stock:             30,
+		SafeStock:         40,
+		ExpiryDate:        now.AddDate(0, 1, 0),
+		Warnings:          []string{},
+		UsageInstructions: "仅限外用",
+		CreatedAt:         now,
+		UpdatedAt:         now,
 	}
 
 	return nil
