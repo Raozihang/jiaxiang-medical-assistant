@@ -100,6 +100,35 @@ func (r *GormMedicineRepository) ListAll(ctx context.Context) ([]Medicine, error
 	return items, nil
 }
 
+func (r *GormMedicineRepository) Create(ctx context.Context, input CreateMedicineInput) (Medicine, error) {
+	warnings, err := json.Marshal(input.Warnings)
+	if err != nil {
+		return Medicine{}, err
+	}
+	if len(warnings) == 0 {
+		warnings = []byte("[]")
+	}
+
+	row := model.Medicine{
+		ID:                   uuid.New(),
+		Name:                 input.Name,
+		Specification:        input.Specification,
+		Stock:                input.Stock,
+		SafeStock:            input.SafeStock,
+		ExpiryDate:           input.ExpiryDate.UTC(),
+		Warnings:             datatypes.JSON(warnings),
+		RecommendedDosage:    input.RecommendedDosage,
+		RecommendedFrequency: input.RecommendedFrequency,
+		RecommendedDuration:  input.RecommendedDuration,
+		UsageInstructions:    input.UsageInstructions,
+	}
+	if err := r.db.WithContext(ctx).Create(&row).Error; err != nil {
+		return Medicine{}, err
+	}
+
+	return toMedicineDTO(row), nil
+}
+
 func (r *GormMedicineRepository) Inbound(ctx context.Context, input StockChangeInput) (Medicine, error) {
 	return r.changeStock(ctx, input, true)
 }
@@ -144,6 +173,53 @@ func (r *GormMedicineRepository) changeStock(ctx context.Context, input StockCha
 		row.Stock += input.Quantity
 	} else {
 		row.Stock -= input.Quantity
+	}
+	row.UpdatedAt = time.Now().UTC()
+
+	if err := tx.Save(&row).Error; err != nil {
+		_ = tx.Rollback()
+		return Medicine{}, err
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return Medicine{}, err
+	}
+
+	return toMedicineDTO(row), nil
+}
+
+func (r *GormMedicineRepository) UpdateInventory(ctx context.Context, id string, input UpdateMedicineInventoryInput) (Medicine, error) {
+	medicineID, err := uuid.Parse(id)
+	if err != nil {
+		return Medicine{}, ErrNotFound
+	}
+
+	tx := r.db.WithContext(ctx).Begin()
+	if tx.Error != nil {
+		return Medicine{}, tx.Error
+	}
+
+	defer func() {
+		if p := recover(); p != nil {
+			_ = tx.Rollback()
+			panic(p)
+		}
+	}()
+
+	var row model.Medicine
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&row, "id = ?", medicineID).Error; err != nil {
+		_ = tx.Rollback()
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return Medicine{}, ErrNotFound
+		}
+		return Medicine{}, err
+	}
+
+	if input.Stock != nil {
+		row.Stock = *input.Stock
+	}
+	if input.SafeStock != nil {
+		row.SafeStock = *input.SafeStock
 	}
 	row.UpdatedAt = time.Now().UTC()
 

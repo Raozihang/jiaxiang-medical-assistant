@@ -72,25 +72,38 @@ type VisitRepository interface {
 }
 
 type Medicine struct {
-	ID             string    `json:"id"`
-	Name           string    `json:"name"`
-	Specification  string    `json:"specification"`
-	Stock          int       `json:"stock"`
-	SafeStock      int       `json:"safe_stock"`
-	ExpiryDate     time.Time `json:"expiry_date"`
-	Warnings       []string  `json:"warnings"`
+	ID                   string    `json:"id"`
+	Name                 string    `json:"name"`
+	Specification        string    `json:"specification"`
+	Stock                int       `json:"stock"`
+	SafeStock            int       `json:"safe_stock"`
+	ExpiryDate           time.Time `json:"expiry_date"`
+	Warnings             []string  `json:"warnings"`
 	RecommendedDosage    string    `json:"recommended_dosage"`
 	RecommendedFrequency string    `json:"recommended_frequency"`
 	RecommendedDuration  string    `json:"recommended_duration"`
 	UsageInstructions    string    `json:"usage_instructions"`
-	IsLowStock     bool      `json:"is_low_stock"`
-	IsExpiringSoon bool      `json:"is_expiring_soon"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	IsLowStock           bool      `json:"is_low_stock"`
+	IsExpiringSoon       bool      `json:"is_expiring_soon"`
+	CreatedAt            time.Time `json:"created_at"`
+	UpdatedAt            time.Time `json:"updated_at"`
 }
 
 type MedicineListParams struct {
 	PageParams
+}
+
+type CreateMedicineInput struct {
+	Name                 string
+	Specification        string
+	Stock                int
+	SafeStock            int
+	ExpiryDate           time.Time
+	Warnings             []string
+	RecommendedDosage    string
+	RecommendedFrequency string
+	RecommendedDuration  string
+	UsageInstructions    string
 }
 
 type StockChangeInput struct {
@@ -98,11 +111,18 @@ type StockChangeInput struct {
 	Quantity   int
 }
 
+type UpdateMedicineInventoryInput struct {
+	Stock     *int
+	SafeStock *int
+}
+
 type MedicineRepository interface {
 	List(ctx context.Context, params MedicineListParams) (PageResult[Medicine], error)
 	ListAll(ctx context.Context) ([]Medicine, error)
+	Create(ctx context.Context, input CreateMedicineInput) (Medicine, error)
 	Inbound(ctx context.Context, input StockChangeInput) (Medicine, error)
 	Outbound(ctx context.Context, input StockChangeInput) (Medicine, error)
+	UpdateInventory(ctx context.Context, id string, input UpdateMedicineInventoryInput) (Medicine, error)
 	CountWarnings(ctx context.Context, now time.Time) (int64, error)
 	EnsureSeedData(ctx context.Context) error
 }

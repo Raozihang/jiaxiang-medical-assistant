@@ -105,6 +105,34 @@ func (r *MockMedicineRepository) ListAll(_ context.Context) ([]Medicine, error) 
 	return items, nil
 }
 
+func (r *MockMedicineRepository) Create(_ context.Context, input CreateMedicineInput) (Medicine, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	now := time.Now().UTC()
+	threshold := now.AddDate(0, 0, 30)
+	medicine := Medicine{
+		ID:                   uuid.NewString(),
+		Name:                 input.Name,
+		Specification:        input.Specification,
+		Stock:                input.Stock,
+		SafeStock:            input.SafeStock,
+		ExpiryDate:           input.ExpiryDate.UTC(),
+		Warnings:             append([]string(nil), input.Warnings...),
+		RecommendedDosage:    input.RecommendedDosage,
+		RecommendedFrequency: input.RecommendedFrequency,
+		RecommendedDuration:  input.RecommendedDuration,
+		UsageInstructions:    input.UsageInstructions,
+		IsLowStock:           input.Stock < input.SafeStock,
+		IsExpiringSoon:       !input.ExpiryDate.After(threshold),
+		CreatedAt:            now,
+		UpdatedAt:            now,
+	}
+	r.medicines[medicine.ID] = medicine
+
+	return medicine, nil
+}
+
 func (r *MockMedicineRepository) Inbound(_ context.Context, input StockChangeInput) (Medicine, error) {
 	return r.changeStock(input, true)
 }
@@ -138,6 +166,32 @@ func (r *MockMedicineRepository) changeStock(input StockChangeInput, inbound boo
 	medicine.IsLowStock = medicine.Stock < medicine.SafeStock
 	medicine.IsExpiringSoon = !medicine.ExpiryDate.After(threshold)
 	r.medicines[input.MedicineID] = medicine
+
+	return medicine, nil
+}
+
+func (r *MockMedicineRepository) UpdateInventory(_ context.Context, id string, input UpdateMedicineInventoryInput) (Medicine, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	medicine, ok := r.medicines[id]
+	if !ok {
+		return Medicine{}, ErrNotFound
+	}
+
+	if input.Stock != nil {
+		medicine.Stock = *input.Stock
+	}
+	if input.SafeStock != nil {
+		medicine.SafeStock = *input.SafeStock
+	}
+
+	now := time.Now().UTC()
+	threshold := now.AddDate(0, 0, 30)
+	medicine.UpdatedAt = now
+	medicine.IsLowStock = medicine.Stock < medicine.SafeStock
+	medicine.IsExpiringSoon = !medicine.ExpiryDate.After(threshold)
+	r.medicines[id] = medicine
 
 	return medicine, nil
 }

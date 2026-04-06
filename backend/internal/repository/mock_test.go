@@ -83,3 +83,35 @@ func TestMockMedicineExpiryBoundaryConsistency(t *testing.T) {
 		t.Fatalf("expected 1 warning, got %d", warnings)
 	}
 }
+
+func TestMockMedicineCreateAndUpdateInventory(t *testing.T) {
+	repo := NewMockMedicineRepository()
+	expiryDate := time.Now().UTC().AddDate(0, 6, 0)
+
+	created, err := repo.Create(context.Background(), CreateMedicineInput{
+		Name:          "Test Medicine",
+		Specification: "10ml",
+		Stock:         12,
+		SafeStock:     5,
+		ExpiryDate:    expiryDate,
+	})
+	if err != nil {
+		t.Fatalf("create medicine failed: %v", err)
+	}
+	if created.ID == "" || created.Stock != 12 || created.SafeStock != 5 {
+		t.Fatalf("unexpected created medicine: %+v", created)
+	}
+
+	stock := 3
+	safeStock := 8
+	updated, err := repo.UpdateInventory(context.Background(), created.ID, UpdateMedicineInventoryInput{
+		Stock:     &stock,
+		SafeStock: &safeStock,
+	})
+	if err != nil {
+		t.Fatalf("update inventory failed: %v", err)
+	}
+	if updated.Stock != stock || updated.SafeStock != safeStock || !updated.IsLowStock {
+		t.Fatalf("unexpected updated medicine: %+v", updated)
+	}
+}

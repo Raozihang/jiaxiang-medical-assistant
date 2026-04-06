@@ -138,6 +138,47 @@ func TestP0SmokeFlow(t *testing.T) {
 	medicineID := medicineListPayload.Items[0].ID
 	stockBefore := medicineListPayload.Items[0].Stock
 
+	createMedicineResp := doJSONRequest(t, engine, http.MethodPost, "/api/v1/medicines", map[string]any{
+		"name":          "Smoke Medicine",
+		"specification": "20ml",
+		"stock":         8,
+		"safe_stock":    3,
+		"expiry_date":   "2026-12-31",
+	}, doctorToken)
+	requireStatus(t, createMedicineResp, http.StatusOK)
+	createMedicineEnv := decodeEnvelope(t, createMedicineResp)
+	if createMedicineEnv.Code != 0 {
+		t.Fatalf("unexpected create medicine code: %d", createMedicineEnv.Code)
+	}
+	var createdMedicine struct {
+		ID    string `json:"id"`
+		Stock int    `json:"stock"`
+	}
+	unmarshalData(t, createMedicineEnv, &createdMedicine)
+	if createdMedicine.ID == "" || createdMedicine.Stock != 8 {
+		t.Fatalf("unexpected created medicine payload: %+v", createdMedicine)
+	}
+
+	updateInventoryResp := doJSONRequest(t, engine, http.MethodPatch, "/api/v1/medicines/"+createdMedicine.ID+"/inventory", map[string]any{
+		"stock":      5,
+		"safe_stock": 7,
+	}, doctorToken)
+	requireStatus(t, updateInventoryResp, http.StatusOK)
+	updateInventoryEnv := decodeEnvelope(t, updateInventoryResp)
+	if updateInventoryEnv.Code != 0 {
+		t.Fatalf("unexpected update inventory code: %d", updateInventoryEnv.Code)
+	}
+	var updatedMedicine struct {
+		ID         string `json:"id"`
+		Stock      int    `json:"stock"`
+		SafeStock  int    `json:"safe_stock"`
+		IsLowStock bool   `json:"is_low_stock"`
+	}
+	unmarshalData(t, updateInventoryEnv, &updatedMedicine)
+	if updatedMedicine.ID != createdMedicine.ID || updatedMedicine.Stock != 5 || updatedMedicine.SafeStock != 7 || !updatedMedicine.IsLowStock {
+		t.Fatalf("unexpected updated medicine payload: %+v", updatedMedicine)
+	}
+
 	outboundResp := doJSONRequest(t, engine, http.MethodPost, "/api/v1/medicines/outbound", map[string]any{
 		"medicine_id": medicineID,
 		"quantity":    1,

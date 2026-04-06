@@ -84,8 +84,10 @@ func registerRoutes(engine *gin.Engine, cfg config.Config, db *gorm.DB) (func(),
 			protected.PATCH("/visits/:id", visitHandler.Update)
 
 			protected.GET("/medicines", medicineHandler.List)
+			protected.POST("/medicines", medicineHandler.Create)
 			protected.POST("/medicines/inbound", medicineHandler.Inbound)
 			protected.POST("/medicines/outbound", medicineHandler.Outbound)
+			protected.PATCH("/medicines/:id/inventory", medicineHandler.UpdateInventory)
 
 			protected.GET("/reports/overview", reportHandler.Overview)
 			protected.GET("/reports/daily", reportHandler.Daily)
