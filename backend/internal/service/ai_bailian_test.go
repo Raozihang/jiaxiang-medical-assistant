@@ -53,9 +53,9 @@ func TestBailianProviderRecommendUsesSearchWhenRequested(t *testing.T) {
 
 	provider := NewBailianProvider("test-key", "qwen3.5-plus", srv.URL)
 	result, err := provider.Recommend(context.Background(), RecommendInput{
-		Diagnosis:   "upper respiratory infection",
-		Symptoms:    []string{"fever"},
-		Destination: "observation",
+		Diagnosis:    "upper respiratory infection",
+		Symptoms:     []string{"fever"},
+		Destination:  "observation",
 		UseWebSearch: true,
 	})
 	if err != nil {
@@ -71,7 +71,7 @@ func TestBailianProviderInteractionCheckPlainRequest(t *testing.T) {
 		HasInteraction: true,
 		RiskLevel:      "medium",
 		Interactions: []MedicationInteraction{
-			{Pair: []string{"aspirin", "ibuprofen"}, Severity: "medium", Effect: "increased_gastrointestinal_risk"},
+			{Pair: []string{"aspirin", "ibuprofen"}, Severity: "medium", Effect: "胃肠道不良反应风险增加"},
 		},
 	}
 	srv := newTestBailianServer(t, fakeResult, func(req chatRequest) {

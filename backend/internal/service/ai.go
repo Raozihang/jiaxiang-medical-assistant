@@ -295,14 +295,14 @@ func (s *AIService) loadMedicineKnowledge(ctx context.Context) []MedicineKnowled
 func (p *ruleBasedAIProvider) Analyze(_ context.Context, input AnalyzeInput) (AnalyzeResult, error) {
 	matched := collectSignals(input.Symptoms, input.Description)
 	risk, confidence := estimateRisk(input.Temperature, matched)
-	causes := []string{"common_cold"}
-	actions := []string{"hydrate", "rest", "recheck_if_worse"}
+	causes := []string{"普通感冒或轻度上呼吸道不适"}
+	actions := []string{"注意补水", "适当休息", "如症状加重及时复诊"}
 	if containsAny(matched, highRiskSignals()) {
-		causes = []string{"acute_condition", "urgent_assessment_needed"}
-		actions = []string{"notify_guardian", "refer_to_hospital"}
+		causes = []string{"可能存在急性风险情况", "需要立即进一步评估"}
+		actions = []string{"立即通知监护人", "尽快转诊医院"}
 	} else if risk == "medium" {
-		causes = []string{"upper_respiratory_infection", "gastrointestinal_irritation"}
-		actions = []string{"observe_in_clinic", "check_temperature_every_30m"}
+		causes = []string{"可能为上呼吸道感染", "可能存在胃肠道不适"}
+		actions = []string{"留观观察", "每30分钟复测体温或生命体征"}
 	}
 	return AnalyzeResult{
 		RiskLevel:        risk,
@@ -325,23 +325,23 @@ func (p *ruleBasedAIProvider) Triage(ctx context.Context, input TriageInput) (Tr
 	result := TriageResult{
 		TriageLevel:      "routine",
 		Destination:      "classroom",
-		Reason:           "no_high_risk_signal",
+		Reason:           "暂未发现高风险信号，可先回班并继续观察。",
 		ReviewInMinutes:  120,
-		SuggestedActions: []string{"return_to_class", "self_report_if_unwell"},
+		SuggestedActions: []string{"返回班级后继续观察", "如再次不适立即报告老师或校医"},
 	}
 	switch analysis.RiskLevel {
 	case "high":
 		result.TriageLevel = "urgent"
 		result.Destination = "hospital"
-		result.Reason = "high_risk_signal_detected"
+		result.Reason = "已识别高风险信号，需要立即送医进一步处置。"
 		result.ReviewInMinutes = 10
-		result.SuggestedActions = []string{"contact_guardian_now", "prepare_transfer"}
+		result.SuggestedActions = []string{"立即联系监护人", "准备转运或送医"}
 	case "medium":
 		result.TriageLevel = "priority"
 		result.Destination = "observation"
-		result.Reason = "needs_observation"
+		result.Reason = "当前存在一定风险，建议先留观并复评。"
 		result.ReviewInMinutes = 30
-		result.SuggestedActions = []string{"stay_in_observation", "repeat_vitals"}
+		result.SuggestedActions = []string{"安排留观", "复测体温及其他生命体征"}
 	}
 	return result, nil
 }
@@ -349,16 +349,16 @@ func (p *ruleBasedAIProvider) Triage(ctx context.Context, input TriageInput) (Tr
 func (p *ruleBasedAIProvider) Recommend(_ context.Context, input RecommendInput) (RecommendResult, error) {
 	result := RecommendResult{
 		PlanVersion: "mock-rag-v1",
-		Advice:      []string{"record_symptoms", "ensure_hydration"},
-		FollowUp:    "review_in_2_hours",
+		Advice:      []string{"记录症状变化", "注意补水"},
+		FollowUp:    "2小时后复评",
 	}
 	if isHighRiskTriage(input.TriageLevel, input.Destination) {
-		result.Advice = []string{"stabilize_patient", "handover_to_hospital"}
-		result.FollowUp = "follow_hospital_feedback"
+		result.Advice = []string{"先稳定学生当前状况", "尽快与医院完成交接"}
+		result.FollowUp = "持续跟进医院处置反馈"
 		return syncRecommendLegacy(result), nil
 	}
 	if strings.Contains(strings.ToLower(strings.TrimSpace(input.Diagnosis)), "allergy") {
-		result.Advice = append(result.Advice, "avoid_known_allergen")
+		result.Advice = append(result.Advice, "避免接触已知过敏原")
 	}
 	for _, item := range recommendableMedicines(input.AvailableMedicines) {
 		if isSupply(item) {
@@ -369,13 +369,13 @@ func (p *ruleBasedAIProvider) Recommend(_ context.Context, input RecommendInput)
 			Dosage:    item.RecommendedDosage,
 			Frequency: item.RecommendedFrequency,
 			Duration:  item.RecommendedDuration,
-			Reason:    "local_inventory_safe_candidate",
+			Reason:    "基于本地库存、推荐用法和安全信息筛选出的可用药品",
 			Caution:   strings.Join(item.Warnings, "; "),
 		})
 		break
 	}
 	if len(result.Medicines) == 0 {
-		result.Contraindications = []string{"no_safe_local_medicine_candidate"}
+		result.Contraindications = []string{"本地库存中暂无符合当前条件的安全用药选项"}
 	}
 	return syncRecommendLegacy(result), nil
 }
@@ -399,18 +399,18 @@ func (p *ruleBasedAIProvider) InteractionCheck(_ context.Context, input Interact
 		HasInteraction: len(interactions) > 0,
 		RiskLevel:      "low",
 		Interactions:   interactions,
-		Advice:         []string{"keep_medication_record"},
+		Advice:         []string{"请保留完整用药记录"},
 		Safe:           len(interactions) == 0,
 	}
 	if len(interactions) > 0 {
 		result.RiskLevel = highestSeverity(interactions)
-		result.Advice = []string{"verify_with_doctor", "avoid_coadministration_until_confirmed"}
+		result.Advice = []string{"请由医生进一步复核", "在确认前避免联合用药"}
 	}
 	return normalizeInteractionResult(result, result, nil, nil), nil
 }
 
 func highRiskSignals() []string {
-	return []string{"chest pain", "difficulty breathing", "convulsion", "fainting", "vomit blood"}
+	return []string{"chest pain", "difficulty breathing", "convulsion", "fainting", "vomit blood", "胸痛", "呼吸困难", "抽搐", "晕厥", "吐血"}
 }
 
 func collectSignals(symptoms []string, description string) []string {
@@ -463,9 +463,9 @@ func lookupInteraction(a string, b string) (MedicationInteraction, bool) {
 	sort.Strings(pair)
 	key := strings.Join(pair, "+")
 	m := map[string]MedicationInteraction{
-		"aspirin+ibuprofen":                 {Pair: []string{"aspirin", "ibuprofen"}, Severity: "medium", Effect: "increased_gastrointestinal_risk"},
-		"cetirizine+chlorpheniramine":       {Pair: []string{"cetirizine", "chlorpheniramine"}, Severity: "medium", Effect: "excessive_drowsiness"},
-		"acetaminophen+ibuprofen":           {Pair: []string{"acetaminophen", "ibuprofen"}, Severity: "low", Effect: "duplicate_analgesic_monitoring_needed"},
+		"aspirin+ibuprofen":           {Pair: []string{"aspirin", "ibuprofen"}, Severity: "medium", Effect: "胃肠道不良反应风险增加"},
+		"cetirizine+chlorpheniramine": {Pair: []string{"cetirizine", "chlorpheniramine"}, Severity: "medium", Effect: "嗜睡风险增加"},
+		"acetaminophen+ibuprofen":     {Pair: []string{"acetaminophen", "ibuprofen"}, Severity: "low", Effect: "存在重复止痛用药风险，需加强观察"},
 	}
 	item, ok := m[key]
 	return item, ok
@@ -532,28 +532,28 @@ func medicineRAGContext(items []MedicineKnowledge) string {
 	lines := make([]string, 0, len(items))
 	for _, item := range items {
 		parts := []string{
-			"name=" + item.Name,
-			"spec=" + item.Specification,
-			"stock=" + strconv.Itoa(item.Stock),
-			"safe_stock=" + strconv.Itoa(item.SafeStock),
+			"药品=" + item.Name,
+			"规格=" + item.Specification,
+			"库存=" + strconv.Itoa(item.Stock),
+			"安全库存=" + strconv.Itoa(item.SafeStock),
 		}
 		if item.RecommendedDosage != "" {
-			parts = append(parts, "dosage="+item.RecommendedDosage)
+			parts = append(parts, "推荐剂量="+item.RecommendedDosage)
 		}
 		if item.RecommendedFrequency != "" {
-			parts = append(parts, "frequency="+item.RecommendedFrequency)
+			parts = append(parts, "推荐频次="+item.RecommendedFrequency)
 		}
 		if item.RecommendedDuration != "" {
-			parts = append(parts, "duration="+item.RecommendedDuration)
+			parts = append(parts, "推荐疗程="+item.RecommendedDuration)
 		}
 		if item.UsageInstructions != "" {
-			parts = append(parts, "usage="+item.UsageInstructions)
+			parts = append(parts, "用法="+item.UsageInstructions)
 		}
 		if len(item.Warnings) > 0 {
-			parts = append(parts, "warnings="+strings.Join(item.Warnings, "; "))
+			parts = append(parts, "警示="+strings.Join(item.Warnings, "; "))
 		}
 		if item.IsLowStock {
-			parts = append(parts, "low_stock=true")
+			parts = append(parts, "低库存=是")
 		}
 		lines = append(lines, strings.Join(parts, " | "))
 	}
@@ -563,13 +563,13 @@ func medicineRAGContext(items []MedicineKnowledge) string {
 func selectedMedicineRAGContext(names []string, items []MedicineKnowledge, riskFlags []string) string {
 	lines := []string{}
 	if len(names) > 0 {
-		lines = append(lines, "selected="+strings.Join(names, ", "))
+		lines = append(lines, "已选药品="+strings.Join(names, "，"))
 	}
 	if len(items) > 0 {
 		lines = append(lines, medicineRAGContext(items))
 	}
 	if len(riskFlags) > 0 {
-		lines = append(lines, "risk_flags="+strings.Join(riskFlags, ", "))
+		lines = append(lines, "风险标记="+strings.Join(riskFlags, ", "))
 	}
 	return strings.Join(lines, "\n")
 }
@@ -586,12 +586,12 @@ func normalizeRecommendResult(result RecommendResult, input RecommendInput, inve
 	for _, item := range result.Medicines {
 		medicine, ok := findMedicine(item.Name, inventory)
 		if !ok {
-			result.Contraindications = append(result.Contraindications, fmt.Sprintf("%s not found in local inventory and was removed", strings.TrimSpace(item.Name)))
+			result.Contraindications = append(result.Contraindications, fmt.Sprintf("%s 不在本地库存中，已移除。", strings.TrimSpace(item.Name)))
 			result.RiskFlags = append(result.RiskFlags, "inventory_unavailable")
 			continue
 		}
 		if medicine.Stock <= 0 || medicine.IsExpiringSoon || allergyHit(medicine, input.Allergies) {
-			result.Contraindications = append(result.Contraindications, fmt.Sprintf("%s was removed by local safety rules", medicine.Name))
+			result.Contraindications = append(result.Contraindications, fmt.Sprintf("%s 因本地安全规则限制已移除。", medicine.Name))
 			if medicine.IsExpiringSoon {
 				result.RiskFlags = append(result.RiskFlags, "medicine_expiring_soon")
 			}
@@ -612,14 +612,14 @@ func normalizeRecommendResult(result RecommendResult, input RecommendInput, inve
 		}
 		item.Caution = joinWithSemicolon(item.Caution, medicine.UsageInstructions, strings.Join(medicine.Warnings, "; "))
 		if medicine.IsLowStock {
-			item.Caution = joinWithSemicolon(item.Caution, fmt.Sprintf("low stock: %d remaining", medicine.Stock))
+			item.Caution = joinWithSemicolon(item.Caution, fmt.Sprintf("库存偏低：剩余 %d", medicine.Stock))
 			result.RiskFlags = append(result.RiskFlags, "medicine_low_stock")
 		}
 		if len(medicine.Warnings) > 0 {
 			result.RiskFlags = append(result.RiskFlags, "medicine_warning_present")
 		}
 		if item.Reason == "" {
-			item.Reason = "recommended from local inventory RAG context"
+			item.Reason = "基于本地库存、推荐用法与RAG知识综合推荐"
 		}
 		final = append(final, item)
 		result.InventoryBasis = append(result.InventoryBasis, medicineBasis(medicine))
@@ -634,7 +634,7 @@ func normalizeRecommendResult(result RecommendResult, input RecommendInput, inve
 			result.RiskFlags = append(result.RiskFlags, "local_interaction_detected")
 			result.Advice = append(result.Advice, check.Advice...)
 			for _, interaction := range check.Interactions {
-				result.Contraindications = append(result.Contraindications, fmt.Sprintf("%s: %s", strings.Join(interaction.Pair, " + "), interaction.Effect))
+				result.Contraindications = append(result.Contraindications, fmt.Sprintf("%s：%s", strings.Join(interaction.Pair, " + "), interaction.Effect))
 			}
 		}
 	}
@@ -667,7 +667,7 @@ func normalizeInteractionResult(result InteractionCheckResult, local Interaction
 				Title:       strings.Join(interaction.Pair, " + "),
 				Severity:    interaction.Severity,
 				Description: interaction.Effect,
-				Suggestion:  "review the prescription with a doctor before dispensing",
+				Suggestion:  "发药前请由医生复核当前处方。",
 			})
 		}
 	}
@@ -677,7 +677,7 @@ func normalizeInteractionResult(result InteractionCheckResult, local Interaction
 				Title:       item.Name,
 				Severity:    "medium",
 				Description: strings.Join(item.Warnings, "; "),
-				Suggestion:  "review local medicine warnings before dispensing",
+				Suggestion:  "发药前请核对该药品的本地警示信息。",
 			})
 		}
 	}
@@ -713,7 +713,7 @@ func syncRecommendLegacy(result RecommendResult) RecommendResult {
 		result.MedicineHints = medicineNames(result.Medicines)
 	}
 	if result.FollowUp == "" {
-		result.FollowUp = "doctor_review_before_dispense"
+		result.FollowUp = "发药前请由医生复核"
 	}
 	return result
 }
@@ -754,22 +754,23 @@ func allergyHit(item MedicineKnowledge, allergies []string) bool {
 
 func isSupply(item MedicineKnowledge) bool {
 	text := strings.ToLower(strings.Join([]string{item.Name, item.Specification, item.UsageInstructions}, " "))
-	return strings.Contains(text, "gauze") || strings.Contains(text, "bandage") || strings.Contains(text, "dressing")
+	return strings.Contains(text, "gauze") || strings.Contains(text, "bandage") || strings.Contains(text, "dressing") ||
+		strings.Contains(text, "纱布") || strings.Contains(text, "绷带") || strings.Contains(text, "敷料")
 }
 
 func medicineBasis(item MedicineKnowledge) string {
-	parts := []string{item.Name, "stock=" + strconv.Itoa(item.Stock)}
+	parts := []string{item.Name, "库存=" + strconv.Itoa(item.Stock)}
 	if item.Specification != "" {
-		parts = append(parts, "spec="+item.Specification)
+		parts = append(parts, "规格="+item.Specification)
 	}
 	if item.RecommendedDosage != "" {
-		parts = append(parts, "dosage="+item.RecommendedDosage)
+		parts = append(parts, "推荐剂量="+item.RecommendedDosage)
 	}
 	if item.RecommendedFrequency != "" {
-		parts = append(parts, "frequency="+item.RecommendedFrequency)
+		parts = append(parts, "推荐频次="+item.RecommendedFrequency)
 	}
 	if item.RecommendedDuration != "" {
-		parts = append(parts, "duration="+item.RecommendedDuration)
+		parts = append(parts, "推荐疗程="+item.RecommendedDuration)
 	}
 	return strings.Join(parts, " | ")
 }

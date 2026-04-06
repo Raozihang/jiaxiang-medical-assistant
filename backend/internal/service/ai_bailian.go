@@ -126,17 +126,18 @@ func extractJSON(text string) string {
 	return s
 }
 
-const analyzeSystemPrompt = `You are a school clinic analysis assistant.
-Return JSON only with:
-- risk_level: low|medium|high
-- confidence: number 0..1
-- matched_signals: string[]
-- possible_causes: string[]
-- suggested_actions: string[]`
+const analyzeSystemPrompt = `你是校医务室症状分析助手。
+要求：
+- 只输出合法 JSON，不要输出 Markdown、解释或额外文本
+- risk_level 只能是 low|medium|high
+- confidence 为 0..1 的数字
+- matched_signals 为字符串数组
+- possible_causes、suggested_actions 中所有自然语言内容必须使用简体中文
+- 保持 JSON 字段名不变`
 
 func (p *bailianProvider) Analyze(ctx context.Context, input AnalyzeInput) (AnalyzeResult, error) {
-	userMsg := fmt.Sprintf("Symptoms: %s\nDescription: %s\nTemperature: %.1fC",
-		strings.Join(input.Symptoms, ", "), input.Description, input.Temperature)
+	userMsg := fmt.Sprintf("症状：%s\n补充描述：%s\n体温：%.1fC",
+		strings.Join(input.Symptoms, "，"), input.Description, input.Temperature)
 	raw, err := p.call(ctx, analyzeSystemPrompt, userMsg, false)
 	if err != nil {
 		return AnalyzeResult{}, fmt.Errorf("AI analyze: %w", err)
@@ -149,17 +150,18 @@ func (p *bailianProvider) Analyze(ctx context.Context, input AnalyzeInput) (Anal
 	return result, nil
 }
 
-const triageSystemPrompt = `You are a school clinic triage assistant.
-Return JSON only with:
-- triage_level: routine|priority|urgent
-- destination: classroom|observation|hospital
-- reason: string
-- review_in_minutes: integer
-- suggested_actions: string[]`
+const triageSystemPrompt = `你是校医务室分诊助手。
+要求：
+- 只输出合法 JSON，不要输出 Markdown、解释或额外文本
+- triage_level 只能是 routine|priority|urgent
+- destination 只能是 classroom|observation|hospital
+- reason、suggested_actions 中所有自然语言内容必须使用简体中文
+- review_in_minutes 为整数
+- 保持 JSON 字段名不变`
 
 func (p *bailianProvider) Triage(ctx context.Context, input TriageInput) (TriageResult, error) {
-	userMsg := fmt.Sprintf("Symptoms: %s\nDescription: %s\nTemperature: %.1fC",
-		strings.Join(input.Symptoms, ", "), input.Description, input.Temperature)
+	userMsg := fmt.Sprintf("症状：%s\n补充描述：%s\n体温：%.1fC",
+		strings.Join(input.Symptoms, "，"), input.Description, input.Temperature)
 	raw, err := p.call(ctx, triageSystemPrompt, userMsg, false)
 	if err != nil {
 		return TriageResult{}, fmt.Errorf("AI triage: %w", err)
@@ -172,29 +174,26 @@ func (p *bailianProvider) Triage(ctx context.Context, input TriageInput) (Triage
 	return result, nil
 }
 
-const recommendSystemPrompt = `You are a school clinic medication recommendation assistant.
-Use the provided local medicine inventory as the primary RAG source.
-Rules:
-- recommend only from the provided local inventory
-- prefer medicines with stock > 0 and not expiring soon
-- include dosage, frequency, duration, reason, caution
-- if no safe local option exists, return an empty medicines array and explain why
-- if web search is enabled, use it only as a safety cross-check
-Return JSON only with:
-- plan_version: string
-- medicines: [{name,dosage,frequency,duration,reason,caution}]
-- advice: string[]
-- contraindications: string[]
-- risk_flags: string[]`
+const recommendSystemPrompt = `你是校医务室用药推荐助手。
+要求：
+- 只输出合法 JSON，不要输出 Markdown、解释或额外文本
+- 以提供的本地药品库存与 RAG 内容为第一依据，只能推荐本地库存中的药品
+- 优先选择库存大于 0、未临期、警示信息可控的药品
+- medicines 中必须包含 name、dosage、frequency、duration、reason、caution
+- 若没有安全可用的本地药品，medicines 返回空数组，并在 contraindications 中用简体中文说明原因
+- 如启用 web search，只能用于安全性复核，不能绕过本地库存限制
+- 除 plan_version、risk_flags 以及已有枚举/代码字段外，所有自然语言内容必须使用简体中文
+- risk_flags 必须保持稳定的英文 snake_case 代码
+- 保持 JSON 字段名不变`
 
 func (p *bailianProvider) Recommend(ctx context.Context, input RecommendInput) (RecommendResult, error) {
 	userMsg := fmt.Sprintf(
-		"Diagnosis: %s\nSymptoms: %s\nTriage: %s\nDestination: %s\nAllergies: %s\nRisk flags: %s\nLocal inventory RAG:\n%s",
+		"诊断：%s\n症状：%s\n分诊等级：%s\n去向：%s\n过敏信息：%s\n风险标记：%s\n本地库存与RAG信息：\n%s",
 		input.Diagnosis,
-		strings.Join(input.Symptoms, ", "),
+		strings.Join(input.Symptoms, "，"),
 		input.TriageLevel,
 		input.Destination,
-		strings.Join(input.Allergies, ", "),
+		strings.Join(input.Allergies, "，"),
 		strings.Join(input.RiskFlags, ", "),
 		input.RAGContext,
 	)
@@ -210,20 +209,20 @@ func (p *bailianProvider) Recommend(ctx context.Context, input RecommendInput) (
 	return result, nil
 }
 
-const interactionCheckSystemPrompt = `You are a school clinic medication safety assistant.
-Use the provided local medicine RAG data first, and use web search only when enabled for safety verification.
-Return JSON only with:
-- has_interaction: boolean
-- risk_level: low|medium|high
-- interactions: [{pair,severity,effect}]
-- advice: string[]
-- warnings: [{title,severity,description,suggestion}]
-- risk_flags: string[]`
+const interactionCheckSystemPrompt = `你是校医务室用药安全审查助手。
+要求：
+- 只输出合法 JSON，不要输出 Markdown、解释或额外文本
+- 优先使用提供的本地药品 RAG 数据；只有启用 web search 时，才可用于安全复核
+- risk_level 只能是 low|medium|high
+- interactions 中 effect 必须使用简体中文；severity 建议使用 low|medium|high
+- advice、warnings.title、warnings.description、warnings.suggestion 必须使用简体中文
+- risk_flags 必须保持稳定的英文 snake_case 代码
+- 保持 JSON 字段名不变`
 
 func (p *bailianProvider) InteractionCheck(ctx context.Context, input InteractionCheckInput) (InteractionCheckResult, error) {
 	userMsg := fmt.Sprintf(
-		"Medicines: %s\nStudent ID: %s\nRisk flags: %s\nLocal medicine RAG:\n%s",
-		strings.Join(input.Medicines, ", "),
+		"待核查药品：%s\n学生ID：%s\n风险标记：%s\n本地药品RAG信息：\n%s",
+		strings.Join(input.Medicines, "，"),
 		input.StudentID,
 		strings.Join(input.RiskFlags, ", "),
 		input.RAGContext,
