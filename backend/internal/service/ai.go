@@ -137,6 +137,8 @@ type MedicationInteraction struct {
 	Effect   string   `json:"effect"`
 }
 
+const defaultNormalTemperatureForAI = 36.5
+
 type ruleBasedAIProvider struct{}
 
 var defaultAIProvider AIProvider = &ruleBasedAIProvider{}
@@ -168,6 +170,7 @@ func (s *AIService) canUseWebSearch() bool {
 }
 
 func (s *AIService) Analyze(ctx context.Context, input AnalyzeInput) (AnalyzeResult, error) {
+	input.Temperature = normalizeTemperatureForAI(input.Temperature)
 	provider := s.resolveProvider()
 	result, err := provider.Analyze(ctx, input)
 	if err == nil {
@@ -178,6 +181,7 @@ func (s *AIService) Analyze(ctx context.Context, input AnalyzeInput) (AnalyzeRes
 }
 
 func (s *AIService) Triage(ctx context.Context, input TriageInput) (TriageResult, error) {
+	input.Temperature = normalizeTemperatureForAI(input.Temperature)
 	provider := s.resolveProvider()
 	result, err := provider.Triage(ctx, input)
 	if err == nil {
@@ -188,6 +192,7 @@ func (s *AIService) Triage(ctx context.Context, input TriageInput) (TriageResult
 }
 
 func (s *AIService) Recommend(ctx context.Context, input RecommendInput) (RecommendResult, error) {
+	input.Temperature = normalizeTemperatureForAI(input.Temperature)
 	inventory := s.loadMedicineKnowledge(ctx)
 	input.AvailableMedicines = recommendableMedicines(inventory)
 	input.RAGContext = medicineRAGContext(input.AvailableMedicines)
@@ -212,6 +217,13 @@ func (s *AIService) Recommend(ctx context.Context, input RecommendInput) (Recomm
 	}
 
 	return result, nil
+}
+
+func normalizeTemperatureForAI(temperature float64) float64 {
+	if temperature > 0 {
+		return temperature
+	}
+	return defaultNormalTemperatureForAI
 }
 
 func (s *AIService) InteractionCheck(ctx context.Context, input InteractionCheckInput) (InteractionCheckResult, error) {

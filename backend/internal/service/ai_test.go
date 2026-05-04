@@ -130,6 +130,35 @@ func TestAIServiceAnalyzeDelegatesToCustomProvider(t *testing.T) {
 	}
 }
 
+func TestAIServiceNormalizesZeroTemperatureBeforeProvider(t *testing.T) {
+	provider := &customAIProviderStub{
+		analyzeResult:   AnalyzeResult{RiskLevel: "low", Confidence: 0.7},
+		recommendResult: RecommendResult{PlanVersion: "test"},
+	}
+	svc := NewAIServiceWithProvider(provider)
+
+	if _, err := svc.Analyze(context.Background(), AnalyzeInput{Symptoms: []string{"fever"}}); err != nil {
+		t.Fatalf("analyze failed: %v", err)
+	}
+	if provider.lastAnalyzeInput.Temperature != defaultNormalTemperatureForAI {
+		t.Fatalf("expected normalized analyze temperature %.1f, got %.1f", defaultNormalTemperatureForAI, provider.lastAnalyzeInput.Temperature)
+	}
+
+	if _, err := svc.Triage(context.Background(), TriageInput{Symptoms: []string{"fever"}}); err != nil {
+		t.Fatalf("triage failed: %v", err)
+	}
+	if provider.lastTriageInput.Temperature != defaultNormalTemperatureForAI {
+		t.Fatalf("expected normalized triage temperature %.1f, got %.1f", defaultNormalTemperatureForAI, provider.lastTriageInput.Temperature)
+	}
+
+	if _, err := svc.Recommend(context.Background(), RecommendInput{Symptoms: []string{"fever"}}); err != nil {
+		t.Fatalf("recommend failed: %v", err)
+	}
+	if provider.lastRecommendInput.Temperature != defaultNormalTemperatureForAI {
+		t.Fatalf("expected normalized recommend temperature %.1f, got %.1f", defaultNormalTemperatureForAI, provider.lastRecommendInput.Temperature)
+	}
+}
+
 func TestAIServiceFallsBackToRuleProviderWhenCustomProviderFails(t *testing.T) {
 	repo := repository.NewMockMedicineRepository()
 	if err := repo.EnsureSeedData(context.Background()); err != nil {

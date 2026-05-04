@@ -136,6 +136,89 @@ func TestVisitServiceUpdateRecordsFailedOutboundCallWhenPhoneMissing(t *testing.
 	}
 }
 
+func TestVisitServiceUpdateQueuesAIAnalysisWhenTemperatureChanges(t *testing.T) {
+	ctx := context.Background()
+	visitRepo := repository.NewMockVisitRepository()
+	queue := &recordingAIAnalysisQueue{repo: visitRepo}
+	svc := NewVisitService(visitRepo)
+	svc.SetAIAnalysisQueue(queue)
+
+	visit, err := visitRepo.Create(ctx, repository.CreateVisitInput{
+		StudentID:         "20260001",
+		Symptoms:          []string{"fever"},
+		Description:       "student reports fever",
+		TemperatureStatus: "due",
+	})
+	if err != nil {
+		t.Fatalf("create visit failed: %v", err)
+	}
+
+	measured := 38.7
+	status := "measured"
+	updated, err := svc.Update(ctx, visit.ID, UpdateVisitInput{
+		TemperatureStatus: &status,
+		TemperatureValue:  &measured,
+	})
+	if err != nil {
+		t.Fatalf("update visit failed: %v", err)
+	}
+
+	if queue.visitID != visit.ID {
+		t.Fatalf("expected AI queue visit %s, got %s", visit.ID, queue.visitID)
+	}
+	if !queue.clearResults {
+		t.Fatal("expected updated temperature to clear stale AI results")
+	}
+	if updated.AIAnalysis.Status != "queued" {
+		t.Fatalf("expected updated visit to expose queued AI status, got %s", updated.AIAnalysis.Status)
+	}
+	if updated.TemperatureValue == nil || *updated.TemperatureValue != measured {
+		t.Fatalf("expected updated temperature %.1f, got %v", measured, updated.TemperatureValue)
+	}
+}
+
+func TestAIAnalysisServiceUsesTemperatureRecordedAfterVisitUpdate(t *testing.T) {
+	ctx := context.Background()
+	visitRepo := repository.NewMockVisitRepository()
+	visit, err := visitRepo.Create(ctx, repository.CreateVisitInput{
+		StudentID:         "20260091",
+		Symptoms:          []string{"fever"},
+		Description:       "student reports fever",
+		TemperatureStatus: "due",
+	})
+	if err != nil {
+		t.Fatalf("create visit failed: %v", err)
+	}
+
+	measured := 39.1
+	status := "measured"
+	if _, err := visitRepo.Update(ctx, visit.ID, repository.UpdateVisitInput{
+		TemperatureStatus: &status,
+		TemperatureValue:  &measured,
+	}); err != nil {
+		t.Fatalf("update visit temperature failed: %v", err)
+	}
+
+	provider := &customAIProviderStub{
+		analyzeResult: AnalyzeResult{RiskLevel: "medium", Confidence: 0.8},
+		recommendResult: RecommendResult{
+			PlanVersion: "test",
+		},
+	}
+	analysisService := NewAIAnalysisService(visitRepo, NewAIServiceWithProvider(provider))
+	analysisService.process(ctx, visit.ID)
+
+	if provider.lastAnalyzeInput.Temperature != measured {
+		t.Fatalf("expected analyze temperature %.1f, got %.1f", measured, provider.lastAnalyzeInput.Temperature)
+	}
+	if provider.lastTriageInput.Temperature != measured {
+		t.Fatalf("expected triage temperature %.1f, got %.1f", measured, provider.lastTriageInput.Temperature)
+	}
+	if provider.lastRecommendInput.Temperature != measured {
+		t.Fatalf("expected recommend temperature %.1f, got %.1f", measured, provider.lastRecommendInput.Temperature)
+	}
+}
+
 func TestOutboundCallServiceRetryUsesLatestContactAndVisitDestination(t *testing.T) {
 	ctx := context.Background()
 	visitRepo := repository.NewMockVisitRepository()
@@ -185,4 +268,19 @@ func TestOutboundCallServiceRetryUsesLatestContactAndVisitDestination(t *testing
 
 func stringPtr(value string) *string {
 	return &value
+}
+
+type recordingAIAnalysisQueue struct {
+	repo         repository.VisitRepository
+	visitID      string
+	clearResults bool
+}
+
+func (q *recordingAIAnalysisQueue) Enqueue(ctx context.Context, visitID string, clearResults bool) (repository.Visit, error) {
+	q.visitID = visitID
+	q.clearResults = clearResults
+	return q.repo.UpdateAIAnalysis(ctx, visitID, repository.UpdateAIAnalysisInput{
+		Status:       "queued",
+		ClearResults: clearResults,
+	})
 }

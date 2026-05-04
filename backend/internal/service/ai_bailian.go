@@ -186,8 +186,8 @@ const analyzeSystemPrompt = `你是校医务室症状分析助手。
 - 保持 JSON 字段名不变`
 
 func (p *bailianProvider) Analyze(ctx context.Context, input AnalyzeInput) (AnalyzeResult, error) {
-	userMsg := fmt.Sprintf("症状：%s\n补充描述：%s\n体温：%.1fC",
-		strings.Join(input.Symptoms, "，"), input.Description, input.Temperature)
+	userMsg := fmt.Sprintf("症状：%s\n补充描述：%s\n体温：%s",
+		strings.Join(input.Symptoms, "，"), input.Description, temperaturePromptText(input.Temperature))
 	raw, err := p.call(ctx, analyzeSystemPrompt, userMsg, false)
 	if err != nil {
 		return AnalyzeResult{}, fmt.Errorf("AI analyze: %w", err)
@@ -210,8 +210,8 @@ const triageSystemPrompt = `你是校医务室分诊助手。
 - 保持 JSON 字段名不变`
 
 func (p *bailianProvider) Triage(ctx context.Context, input TriageInput) (TriageResult, error) {
-	userMsg := fmt.Sprintf("症状：%s\n补充描述：%s\n体温：%.1fC",
-		strings.Join(input.Symptoms, "，"), input.Description, input.Temperature)
+	userMsg := fmt.Sprintf("症状：%s\n补充描述：%s\n体温：%s",
+		strings.Join(input.Symptoms, "，"), input.Description, temperaturePromptText(input.Temperature))
 	raw, err := p.call(ctx, triageSystemPrompt, userMsg, false)
 	if err != nil {
 		return TriageResult{}, fmt.Errorf("AI triage: %w", err)
@@ -222,6 +222,13 @@ func (p *bailianProvider) Triage(ctx context.Context, input TriageInput) (Triage
 		return TriageResult{}, fmt.Errorf("parse AI triage response: %w (raw: %s)", err, raw)
 	}
 	return result, nil
+}
+
+func temperaturePromptText(temperature float64) string {
+	if temperature <= 0 {
+		return "未提供有效读数"
+	}
+	return fmt.Sprintf("%.1fC", temperature)
 }
 
 const recommendSystemPrompt = `你是校医务室用药推荐助手。

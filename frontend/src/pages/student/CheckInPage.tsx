@@ -144,6 +144,10 @@ function temperatureText(status: TemperatureStatus, value: number | null) {
   return "体温正常";
 }
 
+function isTemperaturePending(status: TemperatureStatus) {
+  return status === "requested" || status === "timing" || status === "due";
+}
+
 export function CheckInPage() {
   const [messageApi, contextHolder] = message.useMessage();
   const socketRef = useRef<WebSocket | null>(null);
@@ -447,7 +451,7 @@ export function CheckInPage() {
       return;
     }
     if (step === "temperature") {
-      if (temperatureStatus === "timing" || temperatureStatus === "due") {
+      if (isTemperaturePending(temperatureStatus)) {
         messageApi.warning("请等待医生录入体温后再继续。");
         return;
       }
@@ -499,7 +503,7 @@ export function CheckInPage() {
       messageApi.warning("请先填写学号。");
       return;
     }
-    if (temperatureStatus === "timing" || temperatureStatus === "due") {
+    if (isTemperaturePending(temperatureStatus)) {
       messageApi.warning("体温还未由医生确认，请稍等。");
       return;
     }

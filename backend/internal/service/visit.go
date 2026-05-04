@@ -134,9 +134,20 @@ func (s *VisitService) Update(ctx context.Context, id string, input UpdateVisitI
 	if s.outboundCallService != nil {
 		s.outboundCallService.TrackVisitUpdate(ctx, visit)
 	}
+	if s.aiAnalysisQueue != nil && visitUpdateShouldRefreshAI(input) {
+		if queued, queueErr := s.aiAnalysisQueue.Enqueue(context.WithoutCancel(ctx), visit.ID, true); queueErr != nil {
+			log.Printf("enqueue AI analysis after visit update failed visit_id=%s: %v", visit.ID, queueErr)
+		} else {
+			visit = queued
+		}
+	}
 	s.broadcastVisitsSnapshot(ctx, "updated", &visit)
 
 	return visit, nil
+}
+
+func visitUpdateShouldRefreshAI(input UpdateVisitInput) bool {
+	return input.TemperatureStatus != nil || input.TemperatureValue != nil
 }
 
 func (s *VisitService) RegenerateAIAnalysis(ctx context.Context, id string) (repository.Visit, error) {

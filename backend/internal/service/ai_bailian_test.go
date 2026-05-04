@@ -136,6 +136,32 @@ func TestBailianProviderHandlesMarkdownFence(t *testing.T) {
 	}
 }
 
+func TestBailianProviderDoesNotSendZeroTemperatureAsReading(t *testing.T) {
+	fakeResult := AnalyzeResult{RiskLevel: "low", Confidence: 0.65}
+	srv := newTestBailianServer(t, fakeResult, func(req chatRequest) {
+		if len(req.Messages) < 2 {
+			t.Fatalf("expected user message")
+		}
+		userMsg := req.Messages[1].Content
+		if strings.Contains(userMsg, "0.0C") {
+			t.Fatalf("did not expect zero temperature reading in prompt: %s", userMsg)
+		}
+		if !strings.Contains(userMsg, "未提供有效读数") {
+			t.Fatalf("expected invalid temperature note in prompt: %s", userMsg)
+		}
+	})
+	defer srv.Close()
+
+	provider := NewBailianProvider("test-key", "qwen3.5-plus", srv.URL)
+	result, err := provider.Analyze(context.Background(), AnalyzeInput{Symptoms: []string{"fever"}})
+	if err != nil {
+		t.Fatalf("analyze failed: %v", err)
+	}
+	if result.RiskLevel != "low" {
+		t.Fatalf("expected low, got %s", result.RiskLevel)
+	}
+}
+
 func TestBailianProviderRecommendAcceptsStringContraindications(t *testing.T) {
 	raw := `{
 		"plan_version": "1.0",

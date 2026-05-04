@@ -182,7 +182,7 @@ func visitTemperatureForAI(visit repository.Visit) float64 {
 	if visit.TemperatureValue != nil && *visit.TemperatureValue > 0 {
 		return *visit.TemperatureValue
 	}
-	return 36.5
+	return defaultNormalTemperatureForAI
 }
 
 func (s *AIAnalysisService) markFailed(ctx context.Context, visitID string, err error) {
