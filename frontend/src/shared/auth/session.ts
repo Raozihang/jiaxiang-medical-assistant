@@ -1,4 +1,4 @@
-export type UserRole = "doctor" | "admin";
+export type UserRole = "student" | "doctor" | "admin";
 
 export type AuthUser = {
   name: string;
@@ -9,7 +9,7 @@ const TOKEN_KEY = "jx_medical_token";
 const USER_KEY = "jx_medical_user";
 
 function isUserRole(value: unknown): value is UserRole {
-  return value === "doctor" || value === "admin";
+  return value === "student" || value === "doctor" || value === "admin";
 }
 
 export function getStoredToken() {
@@ -53,7 +53,10 @@ export function resolveHomePath(role: UserRole | null | undefined) {
   if (role === "admin") {
     return "/admin/dashboard";
   }
-  return "/doctor/visits";
+  if (role === "doctor") {
+    return "/doctor/visits";
+  }
+  return "/student/checkin";
 }
 
 export function hasValidSession() {

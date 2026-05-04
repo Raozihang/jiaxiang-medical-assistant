@@ -20,17 +20,27 @@ import dayjs, { type Dayjs } from "dayjs";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
-  analyzeSymptoms,
-  checkMedicineInteractions,
-  recommendMedicines,
-  triageVisit,
   type AnalyzeResult,
+  checkMedicineInteractions,
   type InteractionCheckResult,
+  parseAnalyzeResult,
+  parseInteractionResult,
+  parseRecommendResult,
+  parseTriageResult,
   type RecommendResult,
   type TriageResult,
 } from "@/shared/api/ai";
 import { getErrorMessage } from "@/shared/api/helpers";
-import { getVisit, updateVisit, type Visit } from "@/shared/api/visits";
+import { getVisit, regenerateVisitAIAnalysis, updateVisit, type Visit } from "@/shared/api/visits";
+import {
+  getDestinationLabel,
+  getSymptomLabel,
+  normalizeDestinationForForm,
+} from "@/shared/labels/localization";
+
+function symptomLabel(value: string) {
+  return getSymptomLabel(value);
+}
 
 type UpdateForm = {
   diagnosis: string;
@@ -38,20 +48,6 @@ type UpdateForm = {
   destination: string;
   follow_up_at: Dayjs | null;
   follow_up_note: string;
-};
-
-type AILoadingState = {
-  analyze: boolean;
-  triage: boolean;
-  recommend: boolean;
-  interaction: boolean;
-};
-
-const defaultAILoading: AILoadingState = {
-  analyze: false,
-  triage: false,
-  recommend: false,
-  interaction: false,
 };
 
 function parsePrescriptionInput(value: string) {
@@ -62,33 +58,11 @@ function parsePrescriptionInput(value: string) {
 }
 
 function normalizeDestination(value: string | null | undefined) {
-  const normalized = (value ?? "").trim().toLowerCase();
-  if (!normalized) {
-    return "observation";
-  }
-  if (["urgent", "critical", "high"].includes(normalized)) {
-    return "urgent";
-  }
-  if (["hospital", "referral", "transfer"].includes(normalized)) {
-    return "hospital";
-  }
-  if (["return_class", "returnclass", "class", "classroom", "back"].includes(normalized)) {
-    return "return_class";
-  }
-  return "observation";
+  return normalizeDestinationForForm(value);
 }
 
 function destinationLabel(value: string) {
-  switch (normalizeDestination(value)) {
-    case "urgent":
-      return "紧急处理";
-    case "hospital":
-      return "转诊";
-    case "return_class":
-      return "返回班级";
-    default:
-      return "留观";
-  }
+  return getDestinationLabel(value);
 }
 
 function destinationTagColor(value: string) {
@@ -109,33 +83,75 @@ function parseFollowUpAt(value: string | null | undefined) {
   if (!value) {
     return null;
   }
-
   const parsed = dayjs(value);
   return parsed.isValid() ? parsed : null;
 }
 
 function formatFollowUpAt(value: string | null | undefined) {
   const parsed = parseFollowUpAt(value);
-  if (!parsed) {
-    return "-";
+  return parsed ? parsed.format("YYYY-MM-DD HH:mm") : "-";
+}
+
+function isAIAnalysisRunning(status: string | undefined) {
+  return status === "queued" || status === "processing";
+}
+
+function aiAnalysisStatusText(status: string | undefined) {
+  switch (status) {
+    case "queued":
+      return "AI 建议已进入后台队列";
+    case "processing":
+      return "AI 建议生成中";
+    case "completed":
+      return "AI 建议已生成";
+    case "failed":
+      return "AI 建议生成失败";
+    default:
+      return "AI 建议尚未生成";
   }
-  return parsed.format("YYYY-MM-DD HH:mm");
+}
+
+function aiAnalysisStatusColor(status: string | undefined) {
+  switch (status) {
+    case "queued":
+    case "processing":
+      return "processing";
+    case "completed":
+      return "success";
+    case "failed":
+      return "error";
+    default:
+      return "default";
+  }
+}
+
+function levelColor(level: string) {
+  if (["critical", "high", "severe"].includes(level.toLowerCase())) {
+    return "red";
+  }
+  if (["medium", "warning"].includes(level.toLowerCase())) {
+    return "orange";
+  }
+  return "blue";
 }
 
 export function VisitDetailPage() {
   const { id } = useParams();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
+  const [checkingInteraction, setCheckingInteraction] = useState(false);
   const [visit, setVisit] = useState<Visit | null>(null);
   const [analyzeResult, setAnalyzeResult] = useState<AnalyzeResult | null>(null);
   const [triageResult, setTriageResult] = useState<TriageResult | null>(null);
   const [recommendResult, setRecommendResult] = useState<RecommendResult | null>(null);
   const [interactionResult, setInteractionResult] = useState<InteractionCheckResult | null>(null);
-  const [aiLoading, setAiLoading] = useState<AILoadingState>(defaultAILoading);
   const [form] = Form.useForm<UpdateForm>();
   const [messageApi, contextHolder] = message.useMessage();
 
   const currentPrescription = Form.useWatch("prescription", form);
+  const aiStatus = visit?.ai_analysis?.status ?? "not_started";
+  const aiRunning = isAIAnalysisRunning(aiStatus);
 
   const currentMedicines = useMemo(() => {
     if (!currentPrescription) {
@@ -144,9 +160,32 @@ export function VisitDetailPage() {
     return parsePrescriptionInput(currentPrescription);
   }, [currentPrescription]);
 
-  const setSingleAILoading = useCallback((key: keyof AILoadingState, value: boolean) => {
-    setAiLoading((prev) => ({ ...prev, [key]: value }));
+  const applyCachedAIAnalysis = useCallback((data: Visit) => {
+    const snapshot = data.ai_analysis;
+    setAnalyzeResult(snapshot?.analyze ? parseAnalyzeResult(snapshot.analyze) : null);
+    setTriageResult(snapshot?.triage ? parseTriageResult(snapshot.triage) : null);
+    setRecommendResult(snapshot?.recommend ? parseRecommendResult(snapshot.recommend) : null);
+    setInteractionResult(
+      snapshot?.interaction ? parseInteractionResult(snapshot.interaction) : null,
+    );
   }, []);
+
+  const hydrateVisit = useCallback(
+    (data: Visit, syncForm: boolean) => {
+      setVisit(data);
+      applyCachedAIAnalysis(data);
+      if (syncForm) {
+        form.setFieldsValue({
+          diagnosis: data.diagnosis ?? "",
+          prescription: (data.prescription ?? []).join(", "),
+          destination: normalizeDestination(data.destination),
+          follow_up_at: parseFollowUpAt(data.follow_up_at),
+          follow_up_note: data.follow_up_note ?? "",
+        });
+      }
+    },
+    [applyCachedAIAnalysis, form],
+  );
 
   const loadDetail = useCallback(async () => {
     if (!id) {
@@ -156,93 +195,48 @@ export function VisitDetailPage() {
     setLoading(true);
     try {
       const data = await getVisit(id);
-      setVisit(data);
-      form.setFieldsValue({
-        diagnosis: data.diagnosis ?? "",
-        prescription: (data.prescription ?? []).join(", "),
-        destination: normalizeDestination(data.destination),
-        follow_up_at: parseFollowUpAt(data.follow_up_at),
-        follow_up_note: data.follow_up_note ?? "",
-      });
-      setAnalyzeResult(null);
-      setTriageResult(null);
-      setRecommendResult(null);
-      setInteractionResult(null);
+      hydrateVisit(data, true);
     } catch (error) {
       messageApi.error(getErrorMessage(error, "就诊详情加载失败"));
     } finally {
       setLoading(false);
     }
-  }, [form, id, messageApi]);
+  }, [hydrateVisit, id, messageApi]);
 
   useEffect(() => {
     void loadDetail();
   }, [loadDetail]);
 
-  const runAnalyze = async () => {
-    if (!visit) {
+  useEffect(() => {
+    if (!id || !aiRunning) {
       return;
     }
-    setSingleAILoading("analyze", true);
-    try {
-      const result = await analyzeSymptoms({
-        visit_id: visit.id,
-        symptoms: visit.symptoms,
-        description: visit.description,
-      });
-      setAnalyzeResult(result);
-      messageApi.success("症状结构化完成");
-    } catch (error) {
-      messageApi.error(getErrorMessage(error, "症状结构化失败"));
-    } finally {
-      setSingleAILoading("analyze", false);
-    }
-  };
 
-  const runTriage = async () => {
-    if (!visit) {
-      return;
-    }
-    setSingleAILoading("triage", true);
-    try {
-      const result = await triageVisit({
-        visit_id: visit.id,
-        symptoms: visit.symptoms,
-        description: visit.description,
-        analysis_summary: analyzeResult?.summary,
-      });
-      setTriageResult(result);
-      messageApi.success("智能分诊完成");
-    } catch (error) {
-      messageApi.error(getErrorMessage(error, "智能分诊失败"));
-    } finally {
-      setSingleAILoading("triage", false);
-    }
-  };
+    const timer = window.setInterval(async () => {
+      try {
+        const data = await getVisit(id);
+        hydrateVisit(data, false);
+      } catch {
+        window.clearInterval(timer);
+      }
+    }, 2500);
 
-  const runRecommend = async () => {
+    return () => window.clearInterval(timer);
+  }, [aiRunning, hydrateVisit, id]);
+
+  const regenerateAIAnalysis = async () => {
     if (!visit) {
       return;
     }
-    setSingleAILoading("recommend", true);
+    setRegenerating(true);
     try {
-      const diagnosis = form.getFieldValue("diagnosis");
-      const destination = normalizeDestination(
-        triageResult?.destination ?? form.getFieldValue("destination") ?? visit.destination,
-      );
-      const result = await recommendMedicines({
-        visit_id: visit.id,
-        symptoms: visit.symptoms,
-        diagnosis,
-        triage_level: triageResult?.level,
-        destination,
-      });
-      setRecommendResult(result);
-      messageApi.success("药品推荐完成");
+      const data = await regenerateVisitAIAnalysis(visit.id);
+      hydrateVisit(data, false);
+      messageApi.success("AI 建议已进入后台队列");
     } catch (error) {
-      messageApi.error(getErrorMessage(error, "药品推荐失败"));
+      messageApi.error(getErrorMessage(error, "AI 建议重新生成失败"));
     } finally {
-      setSingleAILoading("recommend", false);
+      setRegenerating(false);
     }
   };
 
@@ -253,14 +247,14 @@ export function VisitDetailPage() {
 
     const medicines = currentMedicines.length
       ? currentMedicines
-      : recommendResult?.medicines.map((item) => item.name) ?? [];
+      : (recommendResult?.medicines.map((item) => item.name) ?? []);
 
     if (!medicines.length) {
-      messageApi.warning("请先填写处方或先执行药品推荐");
+      messageApi.warning("请先填写处方，或等待后台生成药品建议");
       return;
     }
 
-    setSingleAILoading("interaction", true);
+    setCheckingInteraction(true);
     try {
       const result = await checkMedicineInteractions({
         medicines,
@@ -275,14 +269,8 @@ export function VisitDetailPage() {
     } catch (error) {
       messageApi.error(getErrorMessage(error, "相互作用检查失败"));
     } finally {
-      setSingleAILoading("interaction", false);
+      setCheckingInteraction(false);
     }
-  };
-
-  const runAllAI = async () => {
-    await runAnalyze();
-    await runTriage();
-    await runRecommend();
   };
 
   const applyRecommendedMedicines = () => {
@@ -301,7 +289,7 @@ export function VisitDetailPage() {
       return;
     }
     form.setFieldValue("destination", normalizeDestination(triageResult.destination));
-    messageApi.success("已应用 AI 分诊去向，请医生确认后保存");
+    messageApi.success("已应用 AI 建议去向，请医生确认后保存");
   };
 
   const handleSave = async (values: UpdateForm) => {
@@ -309,13 +297,11 @@ export function VisitDetailPage() {
       return;
     }
 
-    const prescription = parsePrescriptionInput(values.prescription);
-
     setSaving(true);
     try {
       await updateVisit(id, {
         diagnosis: values.diagnosis,
-        prescription,
+        prescription: parsePrescriptionInput(values.prescription),
         destination: values.destination,
         follow_up_at: values.follow_up_at ? values.follow_up_at.toDate().toISOString() : "",
         follow_up_note: values.follow_up_note.trim(),
@@ -333,7 +319,7 @@ export function VisitDetailPage() {
     <Space direction="vertical" size={16} style={{ width: "100%" }}>
       {contextHolder}
       <Typography.Title level={3} style={{ marginBottom: 0 }}>
-        就诊详情与 AI 辅助
+        就诊详情与 AI 辅助建议
       </Typography.Title>
 
       <Card loading={loading}>
@@ -345,15 +331,19 @@ export function VisitDetailPage() {
                 {visit.student_name} / {visit.class_name}
               </Descriptions.Item>
               <Descriptions.Item label="症状" span={2}>
-                {(visit.symptoms ?? []).join(", ") || "-"}
+                {(visit.symptoms ?? []).map(symptomLabel).join("、") || "-"}
               </Descriptions.Item>
               <Descriptions.Item label="主诉" span={2}>
                 {visit.description || "-"}
               </Descriptions.Item>
               <Descriptions.Item label="当前去向">
-                <Tag color={destinationTagColor(visit.destination)}>{destinationLabel(visit.destination)}</Tag>
+                <Tag color={destinationTagColor(visit.destination)}>
+                  {destinationLabel(visit.destination)}
+                </Tag>
               </Descriptions.Item>
-              <Descriptions.Item label="复诊提醒">{formatFollowUpAt(visit.follow_up_at)}</Descriptions.Item>
+              <Descriptions.Item label="复诊提醒">
+                {formatFollowUpAt(visit.follow_up_at)}
+              </Descriptions.Item>
               <Descriptions.Item label="复诊备注" span={2}>
                 {visit.follow_up_note?.trim() || "-"}
               </Descriptions.Item>
@@ -364,7 +354,7 @@ export function VisitDetailPage() {
                 <Input.TextArea rows={3} placeholder="可根据 AI 建议调整后录入" />
               </Form.Item>
               <Form.Item label="处方（逗号或换行分隔）" name="prescription">
-                <Input.TextArea rows={4} placeholder="例：布洛芬, 氯雷他定" />
+                <Input.TextArea rows={4} placeholder="例：布洛芬，氯雷他定" />
               </Form.Item>
               <Form.Item label="去向" name="destination">
                 <Select
@@ -398,31 +388,46 @@ export function VisitDetailPage() {
       </Card>
 
       <Card
-        title="AI 辅助决策"
+        title="AI 辅助建议"
         extra={
-          <Space>
-            <Button loading={aiLoading.analyze} onClick={() => void runAnalyze()}>
-              症状结构化
-            </Button>
-            <Button loading={aiLoading.triage} onClick={() => void runTriage()}>
-              智能分诊
-            </Button>
-            <Button loading={aiLoading.recommend} onClick={() => void runRecommend()}>
-              药品推荐
-            </Button>
-            <Button loading={aiLoading.interaction} onClick={() => void runInteractionCheck()}>
-              相互作用检查
-            </Button>
-            <Button type="primary" onClick={() => void runAllAI()}>
-              一键生成建议
+          <Space wrap>
+            <Tag color={aiAnalysisStatusColor(aiStatus)}>{aiAnalysisStatusText(aiStatus)}</Tag>
+            {visit?.ai_analysis?.processed_at ? (
+              <Typography.Text type="secondary">
+                {dayjs(visit.ai_analysis.processed_at).format("MM-DD HH:mm")}
+              </Typography.Text>
+            ) : null}
+            <Button
+              type="primary"
+              loading={regenerating || aiRunning}
+              onClick={() => void regenerateAIAnalysis()}
+            >
+              重新生成 AI 建议
             </Button>
           </Space>
         }
       >
         <Space direction="vertical" size={16} style={{ width: "100%" }}>
+          {visit?.ai_analysis?.error ? (
+            <Alert
+              type="error"
+              showIcon
+              message="后台 AI 生成失败"
+              description={visit.ai_analysis.error}
+            />
+          ) : null}
+          {aiRunning ? (
+            <Alert
+              type="info"
+              showIcon
+              message="后台正在生成 AI 建议"
+              description="医生可以继续查看或编辑就诊记录，生成完成后此面板会自动刷新缓存结果。"
+            />
+          ) : null}
+
           <Row gutter={[16, 16]}>
             <Col span={12}>
-              <Card title="症状结构化" type="inner" loading={aiLoading.analyze}>
+              <Card title="症状结构化" type="inner" loading={aiRunning && !analyzeResult}>
                 {analyzeResult ? (
                   <Space direction="vertical" size={12} style={{ width: "100%" }}>
                     <Typography.Paragraph>{analyzeResult.summary}</Typography.Paragraph>
@@ -457,16 +462,18 @@ export function VisitDetailPage() {
                     ) : null}
                   </Space>
                 ) : (
-                  <Typography.Text type="secondary">点击“症状结构化”生成 AI 建议</Typography.Text>
+                  <Typography.Text type="secondary">
+                    暂无缓存结果，可点击“重新生成 AI 建议”入队生成
+                  </Typography.Text>
                 )}
               </Card>
             </Col>
 
             <Col span={12}>
               <Card
-                title="智能分诊"
+                title="分诊建议"
                 type="inner"
-                loading={aiLoading.triage}
+                loading={aiRunning && !triageResult}
                 extra={
                   <Button size="small" onClick={applyTriageDestination} disabled={!triageResult}>
                     应用去向
@@ -476,11 +483,13 @@ export function VisitDetailPage() {
                 {triageResult ? (
                   <Space direction="vertical" size={10} style={{ width: "100%" }}>
                     <Typography.Text>
-                      分诊等级：<Tag color={destinationTagColor(normalizeDestination(triageResult.destination))}>{triageResult.level}</Tag>
+                      分诊等级：<Tag>{triageResult.level}</Tag>
                     </Typography.Text>
                     <Typography.Text>
                       建议去向：
-                      <Tag color={destinationTagColor(normalizeDestination(triageResult.destination))}>
+                      <Tag
+                        color={destinationTagColor(normalizeDestination(triageResult.destination))}
+                      >
                         {destinationLabel(normalizeDestination(triageResult.destination))}
                       </Tag>
                     </Typography.Text>
@@ -497,21 +506,21 @@ export function VisitDetailPage() {
                         type="warning"
                         showIcon
                         message="风险提示"
-                        description={(triageResult.riskFlags ?? []).join("；")}
+                        description={triageResult.riskFlags.join("；")}
                       />
                     ) : null}
                   </Space>
                 ) : (
-                  <Typography.Text type="secondary">点击“智能分诊”获取 AI 去向建议</Typography.Text>
+                  <Typography.Text type="secondary">暂无缓存分诊建议</Typography.Text>
                 )}
               </Card>
             </Col>
 
             <Col span={12}>
               <Card
-                title="药品推荐"
+                title="药品建议"
                 type="inner"
-                loading={aiLoading.recommend}
+                loading={aiRunning && !recommendResult}
                 extra={
                   <Button
                     size="small"
@@ -533,10 +542,13 @@ export function VisitDetailPage() {
                           <Space direction="vertical" size={0}>
                             <Typography.Text strong>{item.name}</Typography.Text>
                             <Typography.Text type="secondary">
-                              用法：{item.dosage || "-"} {item.frequency || ""} {item.duration || ""}
+                              用法：{item.dosage || "-"} {item.frequency || ""}{" "}
+                              {item.duration || ""}
                             </Typography.Text>
                             {item.reason ? (
-                              <Typography.Text type="secondary">原因：{item.reason}</Typography.Text>
+                              <Typography.Text type="secondary">
+                                原因：{item.reason}
+                              </Typography.Text>
                             ) : null}
                             {item.caution ? (
                               <Typography.Text type="warning">注意：{item.caution}</Typography.Text>
@@ -545,24 +557,32 @@ export function VisitDetailPage() {
                         </List.Item>
                       )}
                     />
-
                     {recommendResult.contraindications.length ? (
                       <Alert
                         type="warning"
                         showIcon
                         message="禁忌提示"
-                        description={(recommendResult.contraindications ?? []).join("；")}
+                        description={recommendResult.contraindications.join("；")}
                       />
                     ) : null}
                   </Space>
                 ) : (
-                  <Typography.Text type="secondary">点击“药品推荐”生成候选方案</Typography.Text>
+                  <Typography.Text type="secondary">暂无缓存药品建议</Typography.Text>
                 )}
               </Card>
             </Col>
 
             <Col span={12}>
-              <Card title="药物相互作用检查" type="inner" loading={aiLoading.interaction}>
+              <Card
+                title="药物相互作用检查"
+                type="inner"
+                loading={(aiRunning && !interactionResult) || checkingInteraction}
+                extra={
+                  <Button size="small" onClick={() => void runInteractionCheck()} disabled={!visit}>
+                    检查当前处方
+                  </Button>
+                }
+              >
                 {interactionResult ? (
                   <Space direction="vertical" size={10} style={{ width: "100%" }}>
                     <Alert
@@ -587,17 +607,20 @@ export function VisitDetailPage() {
                         <List.Item>
                           <Space direction="vertical" size={0}>
                             <Typography.Text strong>
-                              {item.title} <Tag color={levelColor(item.severity)}>{item.severity}</Tag>
+                              {item.title}{" "}
+                              <Tag color={levelColor(item.severity)}>{item.severity}</Tag>
                             </Typography.Text>
                             <Typography.Text>{item.description}</Typography.Text>
-                            <Typography.Text type="secondary">建议：{item.suggestion}</Typography.Text>
+                            <Typography.Text type="secondary">
+                              建议：{item.suggestion}
+                            </Typography.Text>
                           </Space>
                         </List.Item>
                       )}
                     />
                   </Space>
                 ) : (
-                  <Typography.Text type="secondary">点击“相互作用检查”审核当前处方</Typography.Text>
+                  <Typography.Text type="secondary">暂无缓存检查结果</Typography.Text>
                 )}
               </Card>
             </Col>
@@ -607,14 +630,3 @@ export function VisitDetailPage() {
     </Space>
   );
 }
-
-function levelColor(level: string) {
-  if (["critical", "high", "severe"].includes(level.toLowerCase())) {
-    return "red";
-  }
-  if (["medium", "warning"].includes(level.toLowerCase())) {
-    return "orange";
-  }
-  return "blue";
-}
-

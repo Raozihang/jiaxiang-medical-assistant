@@ -19,6 +19,12 @@ import {
   sendNotification,
   updateStudentContact,
 } from "@/shared/api/notifications";
+import {
+  getChannelLabel,
+  getProviderLabel,
+  getStatusLabel,
+  getTriggerSourceLabel,
+} from "@/shared/labels/localization";
 
 type NotificationForm = {
   channel: NotificationChannel;
@@ -43,6 +49,28 @@ type ContactForm = {
   guardian_phone?: string;
   guardian_relation?: string;
 };
+
+const channelOptions = [
+  { value: "wechat", label: "微信" },
+  { value: "dingtalk", label: "钉钉" },
+];
+
+const scenarioOptions = [
+  { value: "visit_completed", label: "就诊完成" },
+  { value: "observation_notice", label: "留观通知" },
+  { value: "follow_up_reminder", label: "复诊提醒" },
+];
+
+const destinationOptions = [
+  { value: "留观", label: "留观" },
+  { value: "返回班级", label: "返回班级" },
+  { value: "转诊", label: "转诊" },
+  { value: "紧急处理", label: "紧急处理" },
+  { value: "转外院", label: "转外院" },
+  { value: "离校就医", label: "离校就医" },
+  { value: "返回宿舍", label: "返回宿舍" },
+  { value: "离校回家", label: "离校回家" },
+];
 
 function formatDate(value?: string) {
   if (!value) {
@@ -256,13 +284,13 @@ export function NotificationsPage() {
       title: "渠道",
       dataIndex: "channel",
       width: 120,
-      render: (value: string) => <Tag>{value}</Tag>,
+      render: (value: string) => <Tag>{getChannelLabel(value)}</Tag>,
     },
     {
       title: "状态",
       dataIndex: "status",
       width: 120,
-      render: (value: string) => <Tag color={statusColor(value)}>{value}</Tag>,
+      render: (value: string) => <Tag color={statusColor(value)}>{getStatusLabel(value)}</Tag>,
     },
     { title: "接收人", dataIndex: "receiver", width: 200, render: (value: string) => value || "-" },
     { title: "消息内容", dataIndex: "message" },
@@ -318,15 +346,20 @@ export function NotificationsPage() {
       title: "状态",
       dataIndex: "status",
       width: 120,
-      render: (value: string) => <Tag color={statusColor(value)}>{value}</Tag>,
+      render: (value: string) => <Tag color={statusColor(value)}>{getStatusLabel(value)}</Tag>,
     },
     {
       title: "供应商",
       dataIndex: "provider",
       width: 100,
-      render: (value: string) => <Tag>{value}</Tag>,
+      render: (value: string) => <Tag>{getProviderLabel(value)}</Tag>,
     },
-    { title: "触发方式", dataIndex: "trigger_source", width: 100 },
+    {
+      title: "触发方式",
+      dataIndex: "trigger_source",
+      width: 120,
+      render: (value: string) => getTriggerSourceLabel(value),
+    },
     {
       title: "请求时间",
       dataIndex: "requested_at",
@@ -363,7 +396,7 @@ export function NotificationsPage() {
         </Button>
       </Space>
 
-      <Card title="发送通知（WeChat / DingTalk）">
+      <Card title="发送通知（微信 / 钉钉）">
         <Form layout="vertical" form={manualForm} onFinish={(values) => void handleSend(values)}>
           <Space align="start" wrap>
             <Form.Item
@@ -371,20 +404,14 @@ export function NotificationsPage() {
               name="channel"
               rules={[{ required: true, message: "请选择发送渠道" }]}
             >
-              <Select
-                style={{ width: 160 }}
-                options={[
-                  { value: "wechat", label: "WeChat" },
-                  { value: "dingtalk", label: "DingTalk" },
-                ]}
-              />
+              <Select style={{ width: 160 }} options={channelOptions} />
             </Form.Item>
             <Form.Item
               label="接收人"
               name="receiver"
               rules={[{ required: true, message: "请输入接收人" }]}
             >
-              <Input style={{ width: 240 }} placeholder="如：parent_group_1" />
+              <Input style={{ width: 240 }} placeholder="如：家长通知群" />
             </Form.Item>
             <Form.Item
               label="通知内容"
@@ -414,40 +441,34 @@ export function NotificationsPage() {
               name="scenario"
               rules={[{ required: true, message: "请选择场景" }]}
             >
-              <Select
-                style={{ width: 220 }}
-                options={[
-                  { value: "visit_completed", label: "visit_completed（就诊完成）" },
-                  { value: "observation_notice", label: "observation_notice（留观通知）" },
-                  { value: "follow_up_reminder", label: "follow_up_reminder（复诊提醒）" },
-                ]}
-              />
+              <Select style={{ width: 220 }} options={scenarioOptions} />
             </Form.Item>
             <Form.Item
               label="发送渠道"
               name="channel"
               rules={[{ required: true, message: "请选择发送渠道" }]}
             >
-              <Select
-                style={{ width: 160 }}
-                options={[
-                  { value: "wechat", label: "WeChat" },
-                  { value: "dingtalk", label: "DingTalk" },
-                ]}
-              />
+              <Select style={{ width: 160 }} options={channelOptions} />
             </Form.Item>
             <Form.Item
               label="接收人"
               name="receiver"
               rules={[{ required: true, message: "请输入接收人" }]}
             >
-              <Input style={{ width: 220 }} placeholder="如：parent_group_1" />
+              <Input style={{ width: 220 }} placeholder="如：家长通知群" />
             </Form.Item>
             <Form.Item label="学生姓名" name="student_name">
               <Input style={{ width: 180 }} placeholder="可选" />
             </Form.Item>
             <Form.Item label="去向/地点" name="destination">
-              <Input style={{ width: 180 }} placeholder="可选" />
+              <Select
+                allowClear
+                showSearch
+                style={{ width: 180 }}
+                placeholder="可选"
+                options={destinationOptions}
+                optionFilterProp="label"
+              />
             </Form.Item>
             <Form.Item label="复诊时间" name="follow_up_at">
               <Input style={{ width: 220 }} placeholder="可选，如 2026-03-07 14:30" />

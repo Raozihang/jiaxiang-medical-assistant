@@ -22,42 +22,70 @@ func NewGormMedicineRepository(db *gorm.DB) *GormMedicineRepository {
 }
 
 func (r *GormMedicineRepository) EnsureSeedData(ctx context.Context) error {
-	var total int64
-	if err := r.db.WithContext(ctx).Model(&model.Medicine{}).Count(&total).Error; err != nil {
+	var names []string
+	if err := r.db.WithContext(ctx).Model(&model.Medicine{}).Pluck("name", &names).Error; err != nil {
 		return err
 	}
-	if total > 0 {
-		return nil
+
+	existingNames := make(map[string]struct{}, len(names))
+	for _, name := range names {
+		if name != "" {
+			existingNames[name] = struct{}{}
+		}
 	}
 
 	now := time.Now().UTC()
-	rows := []model.Medicine{
-		{
-			ID:                   uuid.New(),
-			Name:                 "布洛芬片",
-			Specification:        "0.2g*24片",
-			Stock:                120,
-			SafeStock:            50,
-			ExpiryDate:           now.AddDate(1, 0, 0),
-			Warnings:             datatypes.JSON([]byte(`["对布洛芬过敏者禁用"]`)),
-			RecommendedDosage:    "0.2g",
-			RecommendedFrequency: "必要时每6到8小时一次",
-			RecommendedDuration:  "最多连续使用3天",
-			UsageInstructions:    "建议饭后服用；如出现胃部不适应立即停用",
-		},
-		{
-			ID:                uuid.New(),
-			Name:              "医用纱布",
-			Specification:     "10cm*10cm",
-			Stock:             30,
-			SafeStock:         40,
-			ExpiryDate:        now.AddDate(0, 1, 0),
-			Warnings:          datatypes.JSON([]byte(`[]`)),
-			UsageInstructions: "仅限外用",
-		},
+	rows := make([]model.Medicine, 0)
+	for _, input := range defaultMedicineSeedInputs(now) {
+		if _, ok := existingNames[input.Name]; ok {
+			continue
+		}
+
+		row, err := medicineModelFromInput(input)
+		if err != nil {
+			return err
+		}
+		rows = append(rows, row)
+		existingNames[input.Name] = struct{}{}
+	}
+
+	if len(rows) == 0 {
+		return nil
 	}
 
 	return r.db.WithContext(ctx).Create(&rows).Error
+}
+
+func medicineModelFromInput(input CreateMedicineInput) (model.Medicine, error) {
+	warnings, err := medicineWarningsJSON(input.Warnings)
+	if err != nil {
+		return model.Medicine{}, err
+	}
+
+	return model.Medicine{
+		ID:                   uuid.New(),
+		Name:                 input.Name,
+		Specification:        input.Specification,
+		Stock:                input.Stock,
+		SafeStock:            input.SafeStock,
+		ExpiryDate:           input.ExpiryDate.UTC(),
+		Warnings:             warnings,
+		RecommendedDosage:    input.RecommendedDosage,
+		RecommendedFrequency: input.RecommendedFrequency,
+		RecommendedDuration:  input.RecommendedDuration,
+		UsageInstructions:    input.UsageInstructions,
+	}, nil
+}
+
+func medicineWarningsJSON(items []string) (datatypes.JSON, error) {
+	warnings, err := json.Marshal(items)
+	if err != nil {
+		return nil, err
+	}
+	if string(warnings) == "null" {
+		warnings = []byte("[]")
+	}
+	return datatypes.JSON(warnings), nil
 }
 
 func (r *GormMedicineRepository) List(ctx context.Context, params MedicineListParams) (PageResult[Medicine], error) {
@@ -101,26 +129,9 @@ func (r *GormMedicineRepository) ListAll(ctx context.Context) ([]Medicine, error
 }
 
 func (r *GormMedicineRepository) Create(ctx context.Context, input CreateMedicineInput) (Medicine, error) {
-	warnings, err := json.Marshal(input.Warnings)
+	row, err := medicineModelFromInput(input)
 	if err != nil {
 		return Medicine{}, err
-	}
-	if len(warnings) == 0 {
-		warnings = []byte("[]")
-	}
-
-	row := model.Medicine{
-		ID:                   uuid.New(),
-		Name:                 input.Name,
-		Specification:        input.Specification,
-		Stock:                input.Stock,
-		SafeStock:            input.SafeStock,
-		ExpiryDate:           input.ExpiryDate.UTC(),
-		Warnings:             datatypes.JSON(warnings),
-		RecommendedDosage:    input.RecommendedDosage,
-		RecommendedFrequency: input.RecommendedFrequency,
-		RecommendedDuration:  input.RecommendedDuration,
-		UsageInstructions:    input.UsageInstructions,
 	}
 	if err := r.db.WithContext(ctx).Create(&row).Error; err != nil {
 		return Medicine{}, err

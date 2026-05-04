@@ -1,11 +1,5 @@
+import { asRecord, pickFirst, toNumber, toText, unwrapApiData } from "@/shared/api/helpers";
 import { http } from "@/shared/api/http";
-import {
-  asRecord,
-  pickFirst,
-  toNumber,
-  toText,
-  unwrapApiData,
-} from "@/shared/api/helpers";
 
 export type OverviewReport = {
   today_visits: number;
@@ -35,13 +29,18 @@ export type ReportRankItem = {
   count: number;
 };
 
+export type DestinationDistribution = Record<string, number>;
+
 export type PeriodReport = {
   period: string;
+  startAt: string;
+  endAt: string;
   generatedAt: string;
   summary: ReportSummary;
   trends: ReportTrend[];
   topSymptoms: ReportRankItem[];
   topMedicines: ReportRankItem[];
+  destinationDistribution: DestinationDistribution;
   raw: unknown;
 };
 
@@ -87,9 +86,21 @@ function toTrendItem(item: unknown, index = 0): ReportTrend {
 }
 
 function parseSummary(record: Record<string, unknown> | null): ReportSummary {
+  const destinationRecord = asRecord(
+    pickFirst(record, ["destination_distribution", "destinationDistribution"]),
+  );
+  const destinationValue = (...keys: string[]) =>
+    keys.reduce<number | undefined>((matched, key) => {
+      if (matched !== undefined) {
+        return matched;
+      }
+      return toNumber(pickFirst(destinationRecord, [key]));
+    }, undefined) ?? 0;
+
   return {
     totalVisits: toNumber(pickFirst(record, ["total_visits", "totalVisits", "visit_count"])) ?? 0,
-    urgentVisits: toNumber(pickFirst(record, ["urgent_visits", "urgentVisits", "urgent_count"])) ?? 0,
+    urgentVisits:
+      toNumber(pickFirst(record, ["urgent_visits", "urgentVisits", "urgent_count"])) ?? 0,
     observationStudents:
       toNumber(
         pickFirst(record, [
@@ -101,13 +112,26 @@ function parseSummary(record: Record<string, unknown> | null): ReportSummary {
         ]),
       ) ?? 0,
     hospitalReferrals:
-      toNumber(
-        pickFirst(record, ["hospital_referrals", "hospitalReferrals", "hospital_count"]),
-      ) ?? 0,
+      toNumber(pickFirst(record, ["hospital_referrals", "hospitalReferrals", "hospital_count"])) ??
+      destinationValue("hospital", "urgent", "referred", "leave_school"),
     returnClassCount:
-      toNumber(pickFirst(record, ["return_class_count", "returnClassCount", "returned_count"])) ?? 0,
+      toNumber(pickFirst(record, ["return_class_count", "returnClassCount", "returned_count"])) ??
+      destinationValue("return_class", "back_to_class", "classroom"),
     stockWarnings: toNumber(pickFirst(record, ["stock_warnings", "stockWarnings"])) ?? 0,
   };
+}
+
+function parseDestinationDistribution(value: unknown): DestinationDistribution {
+  const record = asRecord(value);
+  if (!record) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(record)
+      .map(([key, count]) => [key, toNumber(count) ?? 0] as const)
+      .filter(([, count]) => count > 0),
+  );
 }
 
 function parsePeriodReport(value: unknown, period: string): PeriodReport {
@@ -118,9 +142,15 @@ function parsePeriodReport(value: unknown, period: string): PeriodReport {
   const trendSource = pickFirst(record, ["trends", "trend", "timeline", "chart"]);
   const symptomSource = pickFirst(record, ["top_symptoms", "symptoms", "symptom_ranking"]);
   const medicineSource = pickFirst(record, ["top_medicines", "medicines", "medicine_ranking"]);
+  const destinationSource = pickFirst(record, [
+    "destination_distribution",
+    "destinationDistribution",
+  ]);
 
   return {
     period: toText(pickFirst(record, ["period", "range"]), period),
+    startAt: toText(pickFirst(record, ["start_at", "startAt", "start"])),
+    endAt: toText(pickFirst(record, ["end_at", "endAt", "end"])),
     generatedAt:
       toText(pickFirst(record, ["generated_at", "generatedAt", "updated_at", "timestamp"])) ||
       new Date().toISOString(),
@@ -128,6 +158,7 @@ function parsePeriodReport(value: unknown, period: string): PeriodReport {
     trends: Array.isArray(trendSource) ? trendSource.map(toTrendItem) : [],
     topSymptoms: Array.isArray(symptomSource) ? symptomSource.map(toRankItem) : [],
     topMedicines: Array.isArray(medicineSource) ? medicineSource.map(toRankItem) : [],
+    destinationDistribution: parseDestinationDistribution(destinationSource),
     raw: data,
   };
 }
@@ -146,7 +177,8 @@ function parseOverview(value: unknown): OverviewReport {
 
   return {
     today_visits:
-      toNumber(pickFirst(record, ["today_visits", "todayVisits", "visit_count", "total_visits"])) ?? 0,
+      toNumber(pickFirst(record, ["today_visits", "todayVisits", "visit_count", "total_visits"])) ??
+      0,
     observation_students:
       toNumber(
         pickFirst(record, [
@@ -205,4 +237,3 @@ export async function exportReportExcel(period: "daily" | "weekly" | "monthly") 
   a.remove();
   URL.revokeObjectURL(url);
 }
-

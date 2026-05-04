@@ -38,13 +38,14 @@ func (r *GormVisitRepository) EnsureSeedData(ctx context.Context) error {
 	symptoms, _ := json.Marshal([]string{"发热"})
 	now := time.Now().UTC()
 	return r.db.WithContext(ctx).Create(&model.Visit{
-		StudentID:   student.ID,
-		DoctorID:    uuid.New(),
-		Symptoms:    datatypes.JSON(symptoms),
-		Description: "上午体育课后感到不适",
-		Destination: "observation",
-		CreatedAt:   now.Add(-10 * time.Minute),
-		UpdatedAt:   now.Add(-10 * time.Minute),
+		StudentID:         student.ID,
+		DoctorID:          uuid.New(),
+		Symptoms:          datatypes.JSON(symptoms),
+		Description:       "上午体育课后感到不适",
+		Destination:       "observation",
+		TemperatureStatus: "normal",
+		CreatedAt:         now.Add(-10 * time.Minute),
+		UpdatedAt:         now.Add(-10 * time.Minute),
 	}).Error
 }
 
@@ -106,13 +107,16 @@ func (r *GormVisitRepository) Create(ctx context.Context, input CreateVisitInput
 		now = input.CreatedAt.UTC()
 	}
 	row := model.Visit{
-		StudentID:   student.ID,
-		DoctorID:    uuid.New(),
-		Symptoms:    datatypes.JSON(symptoms),
-		Description: strings.TrimSpace(input.Description),
-		Destination: "observation",
-		CreatedAt:   now,
-		UpdatedAt:   now,
+		StudentID:         student.ID,
+		DoctorID:          uuid.New(),
+		Symptoms:          datatypes.JSON(symptoms),
+		Description:       strings.TrimSpace(input.Description),
+		Destination:       "observation",
+		TemperatureStatus: normalizeTemperatureStatus(input.TemperatureStatus),
+		TemperatureValue:  input.TemperatureValue,
+		AIStatus:          "not_started",
+		CreatedAt:         now,
+		UpdatedAt:         now,
 	}
 	if err := r.db.WithContext(ctx).Create(&row).Error; err != nil {
 		return Visit{}, err
@@ -170,6 +174,19 @@ func (r *GormVisitRepository) Update(ctx context.Context, id string, input Updat
 	if input.Destination != nil {
 		row.Destination = strings.TrimSpace(*input.Destination)
 	}
+	if input.TemperatureStatus != nil {
+		row.TemperatureStatus = strings.TrimSpace(*input.TemperatureStatus)
+		if row.TemperatureStatus == "normal" {
+			row.TemperatureValue = nil
+		}
+	}
+	if input.TemperatureValue != nil {
+		value := *input.TemperatureValue
+		row.TemperatureValue = &value
+		if strings.TrimSpace(row.TemperatureStatus) == "" {
+			row.TemperatureStatus = "measured"
+		}
+	}
 	if input.SetFollowUpAt {
 		if input.FollowUpAt == nil {
 			row.FollowUpAt = nil
@@ -185,6 +202,67 @@ func (r *GormVisitRepository) Update(ctx context.Context, id string, input Updat
 		} else {
 			row.FollowUpNote = &note
 		}
+	}
+	row.UpdatedAt = time.Now().UTC()
+
+	if err := r.db.WithContext(ctx).Save(&row).Error; err != nil {
+		return Visit{}, err
+	}
+
+	var student model.Student
+	if err := r.db.WithContext(ctx).First(&student, "id = ?", row.StudentID).Error; err != nil {
+		return Visit{}, err
+	}
+
+	return toVisitDTO(row, student), nil
+}
+
+func (r *GormVisitRepository) UpdateAIAnalysis(ctx context.Context, id string, input UpdateAIAnalysisInput) (Visit, error) {
+	rowID, err := uuid.Parse(id)
+	if err != nil {
+		return Visit{}, ErrNotFound
+	}
+
+	var row model.Visit
+	if err := r.db.WithContext(ctx).First(&row, "id = ?", rowID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return Visit{}, ErrNotFound
+		}
+		return Visit{}, err
+	}
+
+	status := strings.TrimSpace(input.Status)
+	if status == "" {
+		status = row.AIStatus
+	}
+	if status == "" {
+		status = "not_started"
+	}
+	row.AIStatus = status
+	row.AIError = strings.TrimSpace(input.Error)
+	if input.QueuedAt != nil {
+		row.AIQueuedAt = input.QueuedAt
+	}
+	if input.ProcessedAt != nil || status == "queued" {
+		row.AIProcessedAt = input.ProcessedAt
+	}
+	if input.ClearResults {
+		row.AIAnalyze = nil
+		row.AITriage = nil
+		row.AIRecommend = nil
+		row.AIInteraction = nil
+	}
+	if input.Analyze != nil {
+		row.AIAnalyze = datatypes.JSON(append([]byte(nil), input.Analyze...))
+	}
+	if input.Triage != nil {
+		row.AITriage = datatypes.JSON(append([]byte(nil), input.Triage...))
+	}
+	if input.Recommend != nil {
+		row.AIRecommend = datatypes.JSON(append([]byte(nil), input.Recommend...))
+	}
+	if input.Interaction != nil {
+		row.AIInteraction = datatypes.JSON(append([]byte(nil), input.Interaction...))
 	}
 	row.UpdatedAt = time.Now().UTC()
 
@@ -302,18 +380,44 @@ func toVisitDTO(row model.Visit, student model.Student) Visit {
 	}
 
 	return Visit{
-		ID:           row.ID.String(),
-		StudentID:    studentCode,
-		StudentName:  studentName,
-		ClassName:    className,
-		Symptoms:     symptoms,
-		Description:  row.Description,
-		Diagnosis:    row.Diagnosis,
-		Prescription: prescription,
-		Destination:  row.Destination,
-		FollowUpAt:   row.FollowUpAt,
-		FollowUpNote: row.FollowUpNote,
-		CreatedAt:    row.CreatedAt,
-		UpdatedAt:    row.UpdatedAt,
+		ID:                row.ID.String(),
+		StudentID:         studentCode,
+		StudentName:       studentName,
+		ClassName:         className,
+		Symptoms:          symptoms,
+		Description:       row.Description,
+		Diagnosis:         row.Diagnosis,
+		Prescription:      prescription,
+		Destination:       row.Destination,
+		TemperatureStatus: row.TemperatureStatus,
+		TemperatureValue:  row.TemperatureValue,
+		FollowUpAt:        row.FollowUpAt,
+		FollowUpNote:      row.FollowUpNote,
+		AIAnalysis: AIAnalysis{
+			Status:      defaultAIStatus(row.AIStatus),
+			Error:       row.AIError,
+			Analyze:     rawJSON(row.AIAnalyze),
+			Triage:      rawJSON(row.AITriage),
+			Recommend:   rawJSON(row.AIRecommend),
+			Interaction: rawJSON(row.AIInteraction),
+			QueuedAt:    row.AIQueuedAt,
+			ProcessedAt: row.AIProcessedAt,
+		},
+		CreatedAt: row.CreatedAt,
+		UpdatedAt: row.UpdatedAt,
 	}
+}
+
+func defaultAIStatus(status string) string {
+	if strings.TrimSpace(status) == "" {
+		return "not_started"
+	}
+	return strings.TrimSpace(status)
+}
+
+func rawJSON(value datatypes.JSON) json.RawMessage {
+	if len(value) == 0 {
+		return nil
+	}
+	return json.RawMessage(append([]byte(nil), value...))
 }

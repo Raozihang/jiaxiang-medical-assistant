@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"log"
 	"strings"
 	"time"
 
@@ -11,6 +12,8 @@ import (
 type VisitService struct {
 	repo                repository.VisitRepository
 	outboundCallService *OutboundCallService
+	realtimeHub         *RealtimeHub
+	aiAnalysisQueue     AIAnalysisQueue
 }
 
 type VisitListInput struct {
@@ -19,18 +22,22 @@ type VisitListInput struct {
 }
 
 type CreateVisitInput struct {
-	StudentID   string
-	Symptoms    []string
-	Description string
-	CreatedAt   *time.Time
+	StudentID         string
+	Symptoms          []string
+	Description       string
+	TemperatureStatus string
+	TemperatureValue  *float64
+	CreatedAt         *time.Time
 }
 
 type UpdateVisitInput struct {
-	Diagnosis    *string
-	Prescription *[]string
-	Destination  *string
-	FollowUpAt   *string
-	FollowUpNote *string
+	Diagnosis         *string
+	Prescription      *[]string
+	Destination       *string
+	TemperatureStatus *string
+	TemperatureValue  *float64
+	FollowUpAt        *string
+	FollowUpNote      *string
 }
 
 func NewVisitService(repo repository.VisitRepository, outboundCallService ...*OutboundCallService) *VisitService {
@@ -62,12 +69,35 @@ func (s *VisitService) Create(ctx context.Context, input CreateVisitInput) (repo
 		symptoms = append(symptoms, symptom)
 	}
 
-	return s.repo.Create(ctx, repository.CreateVisitInput{
-		StudentID:   strings.TrimSpace(input.StudentID),
-		Symptoms:    symptoms,
-		Description: strings.TrimSpace(input.Description),
-		CreatedAt:   input.CreatedAt,
+	visit, err := s.repo.Create(ctx, repository.CreateVisitInput{
+		StudentID:         strings.TrimSpace(input.StudentID),
+		Symptoms:          symptoms,
+		Description:       strings.TrimSpace(input.Description),
+		TemperatureStatus: normalizeVisitTemperatureStatus(input.TemperatureStatus),
+		TemperatureValue:  input.TemperatureValue,
+		CreatedAt:         input.CreatedAt,
 	})
+	if err != nil {
+		return repository.Visit{}, err
+	}
+	if s.aiAnalysisQueue != nil {
+		if queued, queueErr := s.aiAnalysisQueue.Enqueue(context.WithoutCancel(ctx), visit.ID, true); queueErr != nil {
+			log.Printf("enqueue AI analysis failed visit_id=%s: %v", visit.ID, queueErr)
+		} else {
+			visit = queued
+		}
+	}
+	s.broadcastVisitsSnapshot(ctx, "created", &visit)
+
+	return visit, nil
+}
+
+func normalizeVisitTemperatureStatus(status string) string {
+	status = strings.TrimSpace(status)
+	if status == "" {
+		return "normal"
+	}
+	return status
 }
 
 func (s *VisitService) GetByID(ctx context.Context, id string) (repository.Visit, error) {
@@ -76,10 +106,12 @@ func (s *VisitService) GetByID(ctx context.Context, id string) (repository.Visit
 
 func (s *VisitService) Update(ctx context.Context, id string, input UpdateVisitInput) (repository.Visit, error) {
 	repoInput := repository.UpdateVisitInput{
-		Diagnosis:    input.Diagnosis,
-		Prescription: input.Prescription,
-		Destination:  input.Destination,
-		FollowUpNote: input.FollowUpNote,
+		Diagnosis:         input.Diagnosis,
+		Prescription:      input.Prescription,
+		Destination:       input.Destination,
+		TemperatureStatus: input.TemperatureStatus,
+		TemperatureValue:  input.TemperatureValue,
+		FollowUpNote:      input.FollowUpNote,
 	}
 
 	if input.FollowUpAt != nil {
@@ -102,6 +134,19 @@ func (s *VisitService) Update(ctx context.Context, id string, input UpdateVisitI
 	if s.outboundCallService != nil {
 		s.outboundCallService.TrackVisitUpdate(ctx, visit)
 	}
+	s.broadcastVisitsSnapshot(ctx, "updated", &visit)
 
+	return visit, nil
+}
+
+func (s *VisitService) RegenerateAIAnalysis(ctx context.Context, id string) (repository.Visit, error) {
+	if s.aiAnalysisQueue == nil {
+		return repository.Visit{}, ErrInvalidInput
+	}
+	visit, err := s.aiAnalysisQueue.Enqueue(context.WithoutCancel(ctx), strings.TrimSpace(id), true)
+	if err != nil {
+		return repository.Visit{}, err
+	}
+	s.broadcastVisitsSnapshot(ctx, "ai_regenerate_queued", &visit)
 	return visit, nil
 }

@@ -1,0 +1,92 @@
+[
+  {
+    "student_id": "20261001",
+    "symptoms": ["fever", "sore throat", "fatigue"],
+    "description": "Student reported throat pain after morning class, temperature 37.8C, poor sleep for two days.",
+    "diagnosis": "upper respiratory infection",
+    "prescription": ["acetaminophen tablets", "throat lozenges"],
+    "destination": "observation",
+    "created_at": "2026-04-01T08:15:00+08:00"
+  },
+  {
+    "student_id": "20261002",
+    "symptoms": ["abdominal pain", "nausea"],
+    "description": "Mild stomach discomfort after breakfast, no vomiting, stable mental status.",
+    "diagnosis": "gastrointestinal discomfort",
+    "prescription": ["montmorillonite powder"],
+    "destination": "back_to_class",
+    "created_at": "2026-04-01T10:05:00+08:00"
+  },
+  {
+    "student_id": "20261003",
+    "symptoms": ["headache", "dizziness"],
+    "description": "Student felt dizzy after recess activity, history of mild hypoglycemia, improved after rest.",
+    "diagnosis": "suspected low blood sugar",
+    "prescription": ["glucose oral solution"],
+    "destination": "observation",
+    "created_at": "2026-04-02T09:20:00+08:00"
+  },
+  {
+    "student_id": "20261004",
+    "symptoms": ["cough", "runny nose"],
+    "description": "Cough became obvious after morning exercise, with nasal congestion and no fever.",
+    "diagnosis": "common cold",
+    "prescription": ["cold relief tablets", "vitamin c tablets"],
+    "destination": "back_to_class",
+    "created_at": "2026-04-02T14:10:00+08:00"
+  },
+  {
+    "student_id": "20261005",
+    "symptoms": ["abrasion", "local pain"],
+    "description": "Right knee abrasion during PE class, wound cleaned and disinfected, no active bleeding.",
+    "diagnosis": "knee soft tissue abrasion",
+    "prescription": ["iodine solution", "sterile gauze"],
+    "destination": "back_to_class",
+    "created_at": "2026-04-03T11:30:00+08:00"
+  },
+  {
+    "student_id": "20261006",
+    "symptoms": ["toothache", "mild cheek swelling"],
+    "description": "Student complained of left tooth pain after lunch, chewing discomfort, advised dental follow-up.",
+    "diagnosis": "suspected gingivitis",
+    "prescription": ["salt water rinse"],
+    "destination": "referred",
+    "created_at": "2026-04-03T15:45:00+08:00"
+  },
+  {
+    "student_id": "20261007",
+    "symptoms": ["nosebleed"],
+    "description": "Small amount of nosebleed after noon break, stopped after compression, vitals stable.",
+    "diagnosis": "dry nasal mucosa bleeding",
+    "prescription": ["saline nasal spray"],
+    "destination": "back_to_dorm",
+    "created_at": "2026-04-04T13:40:00+08:00"
+  },
+  {
+    "student_id": "20261008",
+    "symptoms": ["fever", "muscle ache", "cough"],
+    "description": "Student reported body aches in the afternoon, temperature 38.4C, several classmates recently sick.",
+    "diagnosis": "influenza like illness",
+    "prescription": ["ibuprofen capsules", "antiviral capsules"],
+    "destination": "leave_school",
+    "created_at": "2026-04-05T16:20:00+08:00"
+  },
+  {
+    "student_id": "20261009",
+    "symptoms": ["rash", "itching"],
+    "description": "Scattered rash appeared on both forearms after dinner, mild itching, no breathing difficulty.",
+    "diagnosis": "suspected food allergy",
+    "prescription": ["loratadine tablets"],
+    "destination": "observation",
+    "created_at": "2026-04-06T18:05:00+08:00"
+  },
+  {
+    "student_id": "20261010",
+    "symptoms": ["sprain", "ankle swelling"],
+    "description": "Left ankle sprain during basketball training, limited movement, ice applied, advised parent pickup.",
+    "diagnosis": "ankle sprain",
+    "prescription": ["cold compress", "elastic bandage"],
+    "destination": "leave_school",
+    "created_at": "2026-04-07T17:10:00+08:00"
+  }
+]

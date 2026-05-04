@@ -72,6 +72,7 @@ type RecommendInput struct {
 	Symptoms    []string `json:"symptoms"`
 	Destination string   `json:"destination"`
 	TriageLevel string   `json:"triage_level"`
+	Temperature float64  `json:"temperature"`
 	Allergies   []string `json:"allergies"`
 
 	AvailableMedicines []MedicineKnowledge `json:"-"`

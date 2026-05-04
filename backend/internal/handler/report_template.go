@@ -3,6 +3,7 @@ package handler
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"path/filepath"
 	"strings"
 	"time"
@@ -86,7 +87,7 @@ func (h *ReportTemplateHandler) ExportWithTemplate(c *gin.Context) {
 	defer result.File.Close()
 
 	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-	c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, result.Filename))
+	c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"; filename*=UTF-8''%s`, result.Filename, url.PathEscape(result.Filename)))
 	c.Header("Cache-Control", "no-cache")
 
 	if err := result.File.Write(c.Writer); err != nil {
@@ -202,4 +203,3 @@ func (h *ReportTemplateHandler) DownloadScheduleFile(c *gin.Context) {
 	}
 	c.FileAttachment(fullPath, filepath.Base(fullPath))
 }
-

@@ -2,13 +2,14 @@ import { ReloadOutlined } from "@ant-design/icons";
 import { Button, Card, Form, Input, message, Space, Table, Tag, Typography } from "antd";
 import type { ColumnsType, TablePaginationConfig } from "antd/es/table";
 import { useCallback, useEffect, useState } from "react";
+import { getErrorMessage } from "@/shared/api/helpers";
 import {
   createImportTask,
-  listImportTasks,
   type ImportTask,
+  listImportTasks,
   type VisitImportItem,
 } from "@/shared/api/imports";
-import { getErrorMessage } from "@/shared/api/helpers";
+import { getStatusLabel } from "@/shared/labels/localization";
 
 type ImportTaskRow = {
   id: string;
@@ -29,11 +30,11 @@ type ImportForm = {
 const examplePayload = `[
   {
     "student_id": "20260001",
-    "symptoms": ["fever", "cough"],
-    "description": "history record from paper chart",
-    "diagnosis": "upper respiratory infection",
-    "prescription": ["acetaminophen"],
-    "destination": "observation",
+    "symptoms": ["发热", "咳嗽"],
+    "description": "纸质病历补录：学生晨检低热并伴咳嗽。",
+    "diagnosis": "上呼吸道感染",
+    "prescription": ["对乙酰氨基酚片"],
+    "destination": "留观",
     "created_at": "2026-02-20T08:00:00Z"
   }
 ]`;
@@ -67,7 +68,9 @@ function statusColor(status: string) {
 
 function toTaskRow(task: ImportTask): ImportTaskRow {
   const errorSummary =
-    task.errors.length > 0 ? task.errors.map((item) => `#${item.index}: ${item.message}`).join("; ") : "-";
+    task.errors.length > 0
+      ? task.errors.map((item) => `#${item.index}: ${item.message}`).join("; ")
+      : "-";
 
   return {
     id: task.id,
@@ -146,7 +149,7 @@ export function ImportsPage() {
       title: "状态",
       dataIndex: "status",
       width: 180,
-      render: (value: string) => <Tag color={statusColor(value)}>{value}</Tag>,
+      render: (value: string) => <Tag color={statusColor(value)}>{getStatusLabel(value)}</Tag>,
     },
     { title: "总数", dataIndex: "total", width: 80 },
     { title: "成功", dataIndex: "success", width: 80 },

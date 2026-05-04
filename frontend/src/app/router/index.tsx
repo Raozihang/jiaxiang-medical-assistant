@@ -1,5 +1,5 @@
 import { Spin } from "antd";
-import { Suspense, lazy, type ReactNode } from "react";
+import { lazy, type ReactNode, Suspense } from "react";
 import { createBrowserRouter, Navigate, Outlet } from "react-router-dom";
 import {
   getStoredUser,
@@ -16,7 +16,9 @@ const ImportsPage = lazy(() =>
   import("@/pages/admin/ImportsPage").then((module) => ({ default: module.ImportsPage })),
 );
 const NotificationsPage = lazy(() =>
-  import("@/pages/admin/NotificationsPage").then((module) => ({ default: module.NotificationsPage })),
+  import("@/pages/admin/NotificationsPage").then((module) => ({
+    default: module.NotificationsPage,
+  })),
 );
 const ReportsPage = lazy(() =>
   import("@/pages/admin/ReportsPage").then((module) => ({ default: module.ReportsPage })),
@@ -74,12 +76,12 @@ function RequireAuth() {
   return <Outlet />;
 }
 
-function RequireRole({ role }: { role: UserRole }) {
+function RequireRole({ roles }: { roles: UserRole[] }) {
   const user = getStoredUser();
   if (!user) {
     return <Navigate to="/login" replace />;
   }
-  if (user.role !== role) {
+  if (!roles.includes(user.role)) {
     return <Navigate to="/forbidden" replace />;
   }
   return <Outlet />;
@@ -109,7 +111,7 @@ export const router = createBrowserRouter([
         element: <RequireAuth />,
         children: [
           {
-            element: <RequireRole role="doctor" />,
+            element: <RequireRole roles={["doctor", "admin"]} />,
             children: [
               { path: "doctor/visits", element: withSuspense(<VisitsPage />) },
               { path: "doctor/visit/:id", element: withSuspense(<VisitDetailPage />) },
@@ -117,7 +119,7 @@ export const router = createBrowserRouter([
             ],
           },
           {
-            element: <RequireRole role="admin" />,
+            element: <RequireRole roles={["admin"]} />,
             children: [
               { path: "admin/dashboard", element: withSuspense(<DashboardPage />) },
               { path: "admin/imports", element: withSuspense(<ImportsPage />) },
@@ -132,4 +134,3 @@ export const router = createBrowserRouter([
   },
   { path: "*", element: withSuspense(<NotFoundPage />) },
 ]);
-

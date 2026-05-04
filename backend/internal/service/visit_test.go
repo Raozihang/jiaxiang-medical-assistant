@@ -178,8 +178,8 @@ func TestOutboundCallServiceRetryUsesLatestContactAndVisitDestination(t *testing
 	if retried.GuardianPhone != newPhone {
 		t.Fatalf("expected retried guardian phone %s, got %s", newPhone, retried.GuardianPhone)
 	}
-	if !strings.Contains(retried.Message, "转外院就医") {
-		t.Fatalf("expected retried message to preserve referred destination, got %q", retried.Message)
+	if !strings.Contains(retried.Message, "转外院") {
+		t.Fatalf("expected retried message to localize referred destination, got %q", retried.Message)
 	}
 }
 

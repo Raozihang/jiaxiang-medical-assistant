@@ -115,3 +115,38 @@ func TestMockMedicineCreateAndUpdateInventory(t *testing.T) {
 		t.Fatalf("unexpected updated medicine: %+v", updated)
 	}
 }
+
+func TestMockMedicineEnsureSeedDataBackfillsMissingCatalog(t *testing.T) {
+	repo := NewMockMedicineRepository()
+	repo.medicines["custom"] = Medicine{
+		ID:         "custom",
+		Name:       "自定义药品",
+		Stock:      5,
+		SafeStock:  2,
+		ExpiryDate: time.Now().UTC().AddDate(0, 6, 0),
+	}
+
+	if err := repo.EnsureSeedData(context.Background()); err != nil {
+		t.Fatalf("seed failed: %v", err)
+	}
+
+	all, err := repo.ListAll(context.Background())
+	if err != nil {
+		t.Fatalf("list all failed: %v", err)
+	}
+
+	if len(all) < 51 {
+		t.Fatalf("expected at least 51 medicines after backfill, got %d", len(all))
+	}
+
+	found := false
+	for _, item := range all {
+		if item.Name == "布洛芬片" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected seeded OTC catalog to include 布洛芬片")
+	}
+}

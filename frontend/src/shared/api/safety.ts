@@ -1,4 +1,3 @@
-import { http } from "@/shared/api/http";
 import {
   asRecord,
   normalizePaginated,
@@ -6,6 +5,7 @@ import {
   toText,
   unwrapApiData,
 } from "@/shared/api/helpers";
+import { http } from "@/shared/api/http";
 
 export type SafetyAlert = {
   id: string;
@@ -14,6 +14,8 @@ export type SafetyAlert = {
   title: string;
   description: string;
   source: string;
+  student_id: string;
+  student_name?: string;
   status: string;
   created_at: string;
   resolved_at?: string;
@@ -34,6 +36,8 @@ function toSafetyAlert(item: unknown, index = 0): SafetyAlert {
     title: titleMap[rule] ?? "安全告警",
     description: toText(pickFirst(record, ["message", "description"]), ""),
     source: toText(pickFirst(record, ["student_id", "source"]), "system"),
+    student_id: toText(pickFirst(record, ["student_id", "source"]), ""),
+    student_name: toText(pickFirst(record, ["student_name", "studentName"])) || undefined,
     status: toText(pickFirst(record, ["status"]), "open"),
     created_at: toText(pickFirst(record, ["triggered_at", "created_at"])),
     resolved_at: toText(pickFirst(record, ["resolved_at"])) || undefined,

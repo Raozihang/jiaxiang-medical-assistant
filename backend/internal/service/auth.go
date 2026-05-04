@@ -47,19 +47,21 @@ type TokenClaims struct {
 }
 
 func NewAuthService(cfg config.Config, dataMode string) (*AuthService, error) {
+	studentAccount := strings.TrimSpace(cfg.Auth.StudentAccount)
 	doctorAccount := strings.TrimSpace(cfg.Auth.DoctorAccount)
 	adminAccount := strings.TrimSpace(cfg.Auth.AdminAccount)
-	if doctorAccount == "" || adminAccount == "" {
-		return nil, errors.New("医生和管理员账号配置不能为空")
+	if studentAccount == "" || doctorAccount == "" || adminAccount == "" {
+		return nil, errors.New("学生、医生和管理员账号配置不能为空")
 	}
-	if doctorAccount == adminAccount {
-		return nil, errors.New("医生和管理员账号不能相同")
+	if hasDuplicateAccounts(studentAccount, doctorAccount, adminAccount) {
+		return nil, errors.New("学生、医生和管理员账号不能相同")
 	}
 
+	studentPassword := strings.TrimSpace(cfg.Auth.StudentPassword)
 	doctorPassword := strings.TrimSpace(cfg.Auth.DoctorPassword)
 	adminPassword := strings.TrimSpace(cfg.Auth.AdminPassword)
-	if doctorPassword == "" || adminPassword == "" {
-		return nil, errors.New("医生和管理员密码配置不能为空")
+	if studentPassword == "" || doctorPassword == "" || adminPassword == "" {
+		return nil, errors.New("学生、医生和管理员密码配置不能为空")
 	}
 
 	secret := []byte(strings.TrimSpace(cfg.Auth.JWTSecret))
@@ -77,6 +79,11 @@ func NewAuthService(cfg config.Config, dataMode string) (*AuthService, error) {
 		secret:    secret,
 		expiresIn: expiresIn,
 		credentials: map[string]credential{
+			studentAccount: {
+				password: studentPassword,
+				role:     "student",
+				name:     studentAccount,
+			},
 			doctorAccount: {
 				password: doctorPassword,
 				role:     "doctor",
@@ -89,6 +96,17 @@ func NewAuthService(cfg config.Config, dataMode string) (*AuthService, error) {
 			},
 		},
 	}, nil
+}
+
+func hasDuplicateAccounts(accounts ...string) bool {
+	seen := make(map[string]struct{}, len(accounts))
+	for _, account := range accounts {
+		if _, ok := seen[account]; ok {
+			return true
+		}
+		seen[account] = struct{}{}
+	}
+	return false
 }
 
 func (s *AuthService) Login(input LoginInput) (LoginResult, error) {

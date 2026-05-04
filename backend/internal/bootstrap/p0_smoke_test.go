@@ -24,6 +24,7 @@ func TestP0SmokeFlow(t *testing.T) {
 
 	doctorToken := loginAndGetToken(t, engine, "doctor", "doctor-pass-2026", "doctor")
 	adminToken := loginAndGetToken(t, engine, "admin", "admin-pass-2026", "admin")
+	studentToken := loginAndGetToken(t, engine, "student", "student-pass-2026", "student")
 
 	healthResp := doJSONRequest(t, engine, http.MethodGet, "/api/v1/healthz", nil, "")
 	requireStatus(t, healthResp, http.StatusOK)
@@ -207,6 +208,18 @@ func TestP0SmokeFlow(t *testing.T) {
 	if overviewPayload.TodayVisits < 1 {
 		t.Fatalf("unexpected today_visits: %d", overviewPayload.TodayVisits)
 	}
+
+	adminVisitListResp := doJSONRequest(t, engine, http.MethodGet, "/api/v1/visits?page=1&page_size=20", nil, adminToken)
+	requireStatus(t, adminVisitListResp, http.StatusOK)
+
+	doctorAdminResp := doJSONRequest(t, engine, http.MethodGet, "/api/v1/reports/overview", nil, doctorToken)
+	requireStatus(t, doctorAdminResp, http.StatusForbidden)
+
+	studentMedicalResp := doJSONRequest(t, engine, http.MethodGet, "/api/v1/visits?page=1&page_size=20", nil, studentToken)
+	requireStatus(t, studentMedicalResp, http.StatusForbidden)
+
+	studentAdminResp := doJSONRequest(t, engine, http.MethodGet, "/api/v1/reports/overview", nil, studentToken)
+	requireStatus(t, studentAdminResp, http.StatusForbidden)
 }
 
 func mustBuildSmokeServer(t *testing.T) (http.Handler, func()) {
@@ -218,12 +231,14 @@ func mustBuildSmokeServer(t *testing.T) (http.Handler, func()) {
 		AppPort:  8080,
 		DataMode: "mock",
 		Auth: config.AuthConfig{
-			JWTSecret:      "smoke-test-secret-2026-please-change-in-prod",
-			JWTExpiresIn:   3600,
-			DoctorAccount:  "doctor",
-			DoctorPassword: "doctor-pass-2026",
-			AdminAccount:   "admin",
-			AdminPassword:  "admin-pass-2026",
+			JWTSecret:       "smoke-test-secret-2026-please-change-in-prod",
+			JWTExpiresIn:    3600,
+			StudentAccount:  "student",
+			StudentPassword: "student-pass-2026",
+			DoctorAccount:   "doctor",
+			DoctorPassword:  "doctor-pass-2026",
+			AdminAccount:    "admin",
+			AdminPassword:   "admin-pass-2026",
 		},
 	}
 

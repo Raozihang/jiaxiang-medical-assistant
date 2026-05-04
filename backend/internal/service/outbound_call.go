@@ -150,7 +150,7 @@ func (s *OutboundCallService) placeAndPersistCall(ctx context.Context, visit rep
 	vars := map[string]string{
 		"student_name":  visit.StudentName,
 		"guardian_name": contact.GuardianName,
-		"destination":   visit.Destination,
+		"destination":   destinationDisplayName(visit.Destination),
 		"message":       message,
 	}
 	result, err := s.provider.PlaceCall(ctx, PlaceOutboundCallInput{
@@ -216,13 +216,7 @@ func buildExternalMedicalCallMessage(visit repository.Visit, contact repository.
 	if guardianName == "" {
 		guardianName = "家长"
 	}
-	destinationText := visit.Destination
-	switch strings.TrimSpace(visit.Destination) {
-	case visitDestinationLeaveSchool:
-		destinationText = "离校就医"
-	case visitDestinationReferred:
-		destinationText = "转外院就医"
-	}
+	destinationText := destinationDisplayName(visit.Destination)
 	return guardianName + "您好，学生" + studentName + "已由校医评估并安排" + destinationText + "，请尽快跟进。"
 }
 

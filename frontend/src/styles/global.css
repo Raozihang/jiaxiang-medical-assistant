@@ -355,6 +355,1235 @@ body,
   opacity: 0.08;
 }
 
+.guided-checkin {
+  width: 100%;
+}
+
+.guided-checkin__agent {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 20px;
+  padding: 24px;
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(240, 253, 250, 0.96), rgba(255, 247, 237, 0.92)),
+    linear-gradient(90deg, #0f766e, #ea580c);
+  border: 1px solid rgba(15, 118, 110, 0.14);
+}
+
+.guided-checkin__eyebrow {
+  color: #0f766e;
+  font-weight: 700;
+}
+
+.guided-checkin__panel,
+.guided-checkin__side,
+.doctor-live-card {
+  border-radius: 8px;
+}
+
+.guided-checkin__bubble {
+  padding: 20px;
+  border-radius: 8px;
+  background: #0f172a;
+  color: #fff;
+}
+
+.guided-checkin__bubble .ant-typography {
+  color: #fff;
+}
+
+.guided-checkin__bubble > span {
+  color: #99f6e4;
+  font-weight: 700;
+}
+
+.guided-checkin__symptoms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.guided-checkin__temperature {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.guided-checkin__timer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #ea580c;
+  font-variant-numeric: tabular-nums;
+}
+
+.guided-checkin__timer strong {
+  font-size: 44px;
+  line-height: 1;
+}
+
+.guided-checkin__summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.guided-checkin__summary .ant-typography {
+  flex-basis: 100%;
+  margin: 6px 0 0;
+}
+
+.guided-checkin__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.guided-checkin__steps {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.guided-checkin__steps > div {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 10px;
+  align-items: center;
+  color: #64748b;
+}
+
+.guided-checkin__steps span {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #e2e8f0;
+  color: #475569;
+  font-weight: 700;
+}
+
+.guided-checkin__steps .is-active {
+  color: #0f172a;
+}
+
+.guided-checkin__steps .is-active span {
+  background: #ccfbf1;
+  color: #0f766e;
+}
+
+.doctor-live-card__empty {
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  color: #64748b;
+}
+
+.doctor-live-card__item {
+  padding: 14px;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.doctor-live-card__timer {
+  color: #ea580c;
+  font-size: 28px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.visits-workbench {
+  width: 100%;
+}
+
+.visits-workbench__header,
+.doctor-live-card__row,
+.thermometer-entry__main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.visits-workbench__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 0.85fr);
+  gap: 16px;
+}
+
+.doctor-live-card__question {
+  margin: 10px 0;
+  color: #475569;
+}
+
+.doctor-live-card__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.doctor-thermometer-card .ant-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.thermometer-rack {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.thermometer-rack__metric {
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+}
+
+.thermometer-rack__metric strong {
+  display: block;
+  font-size: 34px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.thermometer-rack__metric span {
+  display: block;
+  margin-top: 8px;
+  color: #64748b;
+}
+
+.thermometer-rack__metric.is-busy strong {
+  color: #ea580c;
+}
+
+.thermometer-rack__metric.is-idle strong {
+  color: #16a34a;
+}
+
+.thermometer-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+}
+
+.thermometer-entry.is-due {
+  border-color: rgba(234, 88, 12, 0.4);
+  background: #fff7ed;
+  box-shadow: 0 12px 24px rgba(234, 88, 12, 0.12);
+}
+
+.thermometer-entry__input {
+  display: grid;
+  grid-template-columns: minmax(110px, 1fr) auto;
+  gap: 10px;
+}
+
+.observation-board .ant-card-head {
+  border-bottom-color: #dbeafe;
+}
+
+.observation-board__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.observation-card {
+  width: 100%;
+  min-height: 132px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #eff6ff, #ffffff);
+  color: #0f172a;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.observation-card:hover,
+.observation-card:focus-visible {
+  border-color: #2563eb;
+  box-shadow: 0 12px 28px rgba(37, 99, 235, 0.14);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.observation-card.is-warning {
+  border-color: #fdba74;
+  background: linear-gradient(180deg, #fff7ed, #ffffff);
+}
+
+.observation-card.is-warning:hover,
+.observation-card.is-warning:focus-visible {
+  border-color: #ea580c;
+  box-shadow: 0 12px 28px rgba(234, 88, 12, 0.14);
+}
+
+.observation-card__topline,
+.observation-card__meta,
+.observation-modal__student {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.observation-card__topline span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 800;
+  font-size: 16px;
+}
+
+.observation-card__meta {
+  color: #475569;
+  font-size: 13px;
+}
+
+.observation-card__symptoms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: auto;
+}
+
+.ant-table-tbody > tr.visit-row-observation > td {
+  background: #eff6ff;
+}
+
+.ant-table-tbody > tr.visit-row-observation:hover > td {
+  background: #dbeafe;
+}
+
+.guided-checkin__header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.guided-checkin__copy {
+  margin: 0;
+  color: #334155;
+}
+
+.guided-checkin__rail {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.guided-checkin__rail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 132px;
+  padding: 14px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.guided-checkin__rail-item.is-active {
+  border-color: rgba(15, 118, 110, 0.3);
+  background: linear-gradient(180deg, #ecfeff, #ffffff);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+}
+
+.guided-checkin__rail-item.is-done {
+  border-color: rgba(22, 163, 74, 0.25);
+}
+
+.guided-checkin__rail-icon {
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: #0f766e;
+  color: #fff;
+  font-size: 18px;
+}
+
+.guided-checkin__rail-item strong {
+  font-size: 15px;
+  color: #0f172a;
+}
+
+.guided-checkin__rail-item small {
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.guided-checkin__student-stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+  gap: 20px;
+}
+
+.guided-checkin__graph-stage,
+.guided-checkin__temperature-stage,
+.guided-checkin__note-stage,
+.guided-checkin__summary-stage {
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 20px;
+}
+
+.rfid-stage {
+  position: relative;
+  min-height: 320px;
+  overflow: hidden;
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 64% 56%, rgba(15, 118, 110, 0.12), transparent 38%),
+    linear-gradient(180deg, #f8fafc, #eef6f6);
+  border: 1px solid #dbe4ee;
+}
+
+.rfid-reader-device {
+  position: absolute;
+  right: 34px;
+  top: 72px;
+  width: 178px;
+  height: 132px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 18px;
+  border-radius: 8px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.95), rgba(226, 232, 240, 0.95)),
+    #e2e8f0;
+  border: 1px solid rgba(100, 116, 139, 0.24);
+  box-shadow:
+    0 24px 44px rgba(15, 23, 42, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+
+.rfid-reader-device::after {
+  content: "";
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  bottom: -14px;
+  height: 18px;
+  border-radius: 0 0 14px 14px;
+  background: #94a3b8;
+  opacity: 0.42;
+}
+
+.rfid-reader-device__slot {
+  height: 48px;
+  border-radius: 8px;
+  background:
+    linear-gradient(90deg, rgba(15, 118, 110, 0.1), transparent),
+    #0f172a;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+.rfid-reader-device__light {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: #22c55e;
+  box-shadow: 0 0 16px rgba(34, 197, 94, 0.72);
+  animation: rfidSignal 2.4s ease-in-out infinite;
+}
+
+.rfid-reader-device span {
+  color: #334155;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.rfid-card-visual {
+  position: absolute;
+  left: 42px;
+  top: 104px;
+  width: 148px;
+  height: 94px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 14px;
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, #0f766e, #14b8a6 56%, #f59e0b),
+    #0f766e;
+  color: #fff;
+  box-shadow: 0 18px 34px rgba(15, 118, 110, 0.28);
+  transform-origin: right center;
+  animation: rfidCardTap 2.8s ease-in-out infinite;
+}
+
+.rfid-card-visual__chip {
+  width: 34px;
+  height: 26px;
+  border-radius: 6px;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.42), transparent),
+    #fde68a;
+  border: 1px solid rgba(255, 255, 255, 0.36);
+}
+
+.rfid-card-visual strong {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.rfid-card-visual small {
+  letter-spacing: 0;
+  opacity: 0.82;
+}
+
+.rfid-contact-signal {
+  position: absolute;
+  right: 192px;
+  top: 132px;
+  width: 34px;
+  height: 34px;
+  border: 2px solid rgba(15, 118, 110, 0.5);
+  border-radius: 50%;
+  opacity: 0;
+  animation: rfidSignal 2.8s ease-in-out infinite;
+}
+
+.rfid-stage__status {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.9);
+  color: #fff;
+}
+
+.rfid-stage__status span {
+  font-weight: 600;
+}
+
+.guided-checkin__student-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.guided-checkin__student-hint {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.guided-checkin__graph-banner,
+.note-stage,
+.summary-stage,
+.temperature-stage__countdown {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.guided-checkin__graph-banner {
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #f0fdfa, #fff7ed);
+  color: #0f766e;
+}
+
+.guided-checkin__graph-banner strong,
+.note-stage strong,
+.summary-stage strong {
+  display: block;
+  color: #0f172a;
+  font-size: 16px;
+}
+
+.guided-checkin__graph-banner span,
+.note-stage span,
+.summary-stage span {
+  display: block;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.body-intake {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.78fr) minmax(0, 1.22fr);
+  gap: 18px;
+  align-items: stretch;
+}
+
+.body-map-card {
+  min-height: 520px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(240, 253, 250, 0.76), rgba(255, 255, 255, 0.94)),
+    #fff;
+  border: 1px solid #dbe4ee;
+}
+
+.body-map-stage {
+  position: relative;
+  width: min(100%, 300px);
+  aspect-ratio: 1 / 2;
+}
+
+.body-map {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.body-map__part {
+  color: #0f766e;
+}
+
+.body-map__part > circle,
+.body-map__part > path,
+.body-map__part > rect {
+  fill: #ffffff;
+  stroke: #99f6e4;
+  stroke-width: 2;
+  filter: drop-shadow(0 8px 14px rgba(15, 23, 42, 0.08));
+  transition:
+    fill 0.18s ease,
+    stroke 0.18s ease,
+    transform 0.18s ease;
+}
+
+.body-map__whole > rect {
+  fill: transparent;
+  stroke: #cbd5e1;
+  stroke-dasharray: 8 10;
+  filter: none;
+}
+
+.body-map__skin > circle {
+  fill: #fff7ed;
+  stroke: #fed7aa;
+}
+
+.body-map__part.is-active > circle,
+.body-map__part.is-active > path,
+.body-map__part.is-active > rect {
+  fill: #ccfbf1;
+  stroke: #0f766e;
+}
+
+.body-map__part text {
+  fill: #0f172a;
+  font-size: 15px;
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
+}
+
+.body-map__head text,
+.body-map__whole text {
+  font-size: 14px;
+}
+
+.body-map-hit {
+  position: absolute;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(13, 148, 136, 0);
+  color: transparent;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.body-map-hit:hover,
+.body-map-hit:focus-visible {
+  outline: 2px solid rgba(13, 148, 136, 0.52);
+  outline-offset: 2px;
+  background: rgba(13, 148, 136, 0.08);
+}
+
+.body-map-hit.is-active {
+  background: rgba(13, 148, 136, 0.04);
+}
+
+.body-map-hit--head {
+  left: 35%;
+  top: 4%;
+  width: 30%;
+  height: 15%;
+}
+
+.body-map-hit--neck {
+  left: 41%;
+  top: 18%;
+  width: 18%;
+  height: 8%;
+}
+
+.body-map-hit--chest {
+  left: 31%;
+  top: 25%;
+  width: 38%;
+  height: 22%;
+  z-index: 3;
+}
+
+.body-map-hit--stomach {
+  left: 34%;
+  top: 48%;
+  width: 32%;
+  height: 18%;
+}
+
+.body-map-hit--left-hand {
+  left: 8%;
+  top: 27%;
+  width: 22%;
+  height: 34%;
+}
+
+.body-map-hit--right-hand {
+  left: 70%;
+  top: 27%;
+  width: 22%;
+  height: 34%;
+}
+
+.body-map-hit--leg {
+  left: 32%;
+  top: 64%;
+  width: 36%;
+  height: 30%;
+}
+
+.body-map-hit--skin {
+  left: 68%;
+  top: 18%;
+  width: 20%;
+  height: 18%;
+}
+
+.body-map-hit--whole {
+  left: 18%;
+  top: 20%;
+  width: 64%;
+  height: 76%;
+  z-index: 0;
+}
+
+.body-map-hit--head,
+.body-map-hit--neck,
+.body-map-hit--stomach,
+.body-map-hit--left-hand,
+.body-map-hit--right-hand,
+.body-map-hit--leg,
+.body-map-hit--skin {
+  z-index: 1;
+}
+
+.body-intake__side {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.one-line-complaint,
+.body-part-list {
+  padding: 14px;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+}
+
+.one-line-complaint {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.one-line-complaint strong {
+  color: #0f172a;
+}
+
+.body-part-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.body-part-list__item {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 12px;
+  border: 1px solid #dbe4ee;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #0f172a;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.body-part-list__item:hover {
+  transform: translateY(-1px);
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+}
+
+.body-part-list__item.is-active {
+  background: #ecfeff;
+  border-color: rgba(13, 148, 136, 0.48);
+}
+
+.body-part-list__item strong {
+  font-size: 14px;
+}
+
+.body-part-list__item span {
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.symptom-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.symptom-grid--compact {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.symptom-grid__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 108px;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #dbe4ee;
+  background: #fff;
+  color: #0f172a;
+  cursor: pointer;
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.symptom-grid--compact .symptom-grid__item {
+  min-height: 86px;
+}
+
+.symptom-grid__item:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+}
+
+.symptom-grid__item.is-active {
+  background: linear-gradient(180deg, #e6fffb, #ffffff);
+  border-color: rgba(13, 148, 136, 0.4);
+}
+
+.symptom-grid__icon {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.symptom-grid__label {
+  font-weight: 600;
+  text-align: center;
+}
+
+.guided-checkin__choice-preview {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+}
+
+.guided-checkin__choice-preview strong {
+  display: block;
+  margin-bottom: 10px;
+  color: #0f172a;
+}
+
+.guided-checkin__choice-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.guided-checkin__choice-text {
+  margin: 10px 0 0;
+  color: #334155;
+}
+
+.temperature-stage {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 20px;
+  align-items: center;
+}
+
+.temperature-stage__gauge {
+  position: relative;
+  height: 240px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #f1f5f9, #ffffff);
+  border: 1px solid #dbe4ee;
+  overflow: hidden;
+}
+
+.temperature-stage__track {
+  position: absolute;
+  inset: 18px 42px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #e2e8f0, #cbd5e1);
+}
+
+.temperature-stage__fill {
+  position: absolute;
+  left: 42px;
+  right: 42px;
+  bottom: 18px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #fb923c, #ef4444);
+  box-shadow: 0 0 18px rgba(239, 68, 68, 0.24);
+}
+
+.temperature-stage__tick {
+  position: absolute;
+  right: 22px;
+  width: 16px;
+  height: 2px;
+  background: #94a3b8;
+}
+
+.temperature-stage__tick--top {
+  top: 24px;
+}
+
+.temperature-stage__tick--mid {
+  top: 50%;
+}
+
+.temperature-stage__tick--bottom {
+  bottom: 24px;
+}
+
+.temperature-stage__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.temperature-stage__countdown {
+  color: #ea580c;
+}
+
+.temperature-stage__countdown strong {
+  font-size: 48px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.note-stage {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.summary-stage {
+  margin-bottom: 14px;
+  padding: 14px 16px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #ecfeff, #fff7ed);
+}
+
+.guided-checkin__summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+}
+
+.guided-checkin__summary .ant-typography {
+  flex-basis: 100%;
+  margin: 6px 0 0;
+}
+
+.guided-checkin__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+@keyframes rfidCardTap {
+  0%,
+  100% {
+    transform: translateX(0) rotate(-5deg);
+  }
+  42%,
+  62% {
+    transform: translateX(132px) rotate(0deg);
+  }
+}
+
+@keyframes rfidSignal {
+  0% {
+    transform: scale(0.82);
+    opacity: 0;
+  }
+  44% {
+    transform: scale(0.82);
+    opacity: 0;
+  }
+  54% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.7);
+    opacity: 0;
+  }
+}
+
+@media (max-width: 1200px) {
+  .guided-checkin__rail {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .guided-checkin__student-stage,
+  .temperature-stage,
+  .visits-workbench__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .body-intake {
+    grid-template-columns: 1fr;
+  }
+
+  .body-map-card {
+    min-height: 420px;
+  }
+
+  .symptom-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .guided-checkin__rail {
+    grid-template-columns: 1fr;
+  }
+
+  .body-part-list,
+  .symptom-grid,
+  .symptom-grid--compact {
+    grid-template-columns: 1fr;
+  }
+
+  .body-map-card {
+    min-height: 360px;
+  }
+
+  .guided-checkin__actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .visits-workbench__header,
+  .doctor-live-card__row,
+  .thermometer-entry__main {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .thermometer-entry__input {
+    grid-template-columns: 1fr;
+  }
+
+  .observation-modal__student {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .guided-checkin__actions > .ant-btn {
+    width: 100%;
+  }
+}
+
+.dashboard-page-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.dashboard-card {
+  height: 100%;
+}
+
+.dashboard-trend-chart {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(36px, 1fr));
+  align-items: end;
+  gap: 14px;
+  min-height: 230px;
+  padding: 12px 4px 4px;
+}
+
+.dashboard-trend-item {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.dashboard-trend-bars {
+  width: 100%;
+  height: 170px;
+  display: flex;
+  align-items: end;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 4px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.dashboard-trend-bar {
+  width: 12px;
+  max-width: 24%;
+  min-height: 8px;
+  border-radius: 6px 6px 0 0;
+  transition: height var(--transition-normal);
+}
+
+.dashboard-trend-bar--visits {
+  background: linear-gradient(180deg, #0d9488, #14b8a6);
+}
+
+.dashboard-trend-bar--observation {
+  background: linear-gradient(180deg, #f59e0b, #fbbf24);
+}
+
+.dashboard-trend-bar--urgent {
+  background: linear-gradient(180deg, #ef4444, #f87171);
+}
+
+.dashboard-trend-label {
+  width: 100%;
+  max-width: 96px;
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+.dashboard-rate-grid {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid #eef2f7;
+}
+
+.dashboard-distribution-row .ant-progress {
+  line-height: 1;
+}
+
+.dashboard-color-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.dashboard-empty-panel {
+  min-height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 10px;
+  color: var(--color-text-secondary);
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+}
+
+.dashboard-empty-panel--compact {
+  min-height: 120px;
+}
+
+.dashboard-rank-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.dashboard-task-row {
+  display: grid;
+  grid-template-columns: 88px 1fr;
+  align-items: start;
+  gap: 10px;
+  padding: 12px;
+  background: #f8fafc;
+  border: 1px solid #eef2f7;
+  border-radius: 8px;
+}
+
 /* ──────────────────────────────────────────
    Welcome Banner
    ────────────────────────────────────────── */
@@ -433,5 +1662,23 @@ body,
 
   .auth-card {
     max-width: 100%;
+  }
+
+  .dashboard-page-heading {
+    flex-direction: column;
+  }
+
+  .dashboard-page-heading > .ant-space {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .dashboard-trend-chart {
+    grid-template-columns: repeat(4, minmax(44px, 1fr));
+    gap: 12px;
+  }
+
+  .dashboard-task-row {
+    grid-template-columns: 1fr;
   }
 }

@@ -33,7 +33,7 @@ src/
 复制 `.env.example` 为 `.env.local` 后按需修改：
 ```env
 VITE_API_BASE_URL=http://localhost:8080/api/v1
-VITE_APP_TITLE=嘉祥智能医务室助手
+VITE_APP_TITLE=智慧医务室系统
 ```
 
 ## Lint

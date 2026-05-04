@@ -164,7 +164,7 @@ func (s *ReportTemplateService) ExportWithTemplate(ctx context.Context, template
 
 	writeSummarySheetWithTitle(f, "统计概览", report, dateLabel, tpl.Title)
 
-	filename := fmt.Sprintf("%s_%s_%s.xlsx", tpl.Name, tpl.Period, dateLabel)
+	filename := fmt.Sprintf("%s_%s_%s.xlsx", tpl.Name, periodDisplayName(tpl.Period), dateLabel)
 
 	return &ExcelExportResult{File: f, Filename: filename}, nil
 }
@@ -262,9 +262,9 @@ func (s *ReportTemplateService) DeleteSchedule(ctx context.Context, id string) e
 // ---- Column definitions ----
 
 type columnDef struct {
-	Key    string
-	Header string
-	Width  float64
+	Key     string
+	Header  string
+	Width   float64
 	Extract func(v repository.Visit, idx int) string
 }
 
@@ -277,10 +277,7 @@ var columnRegistry = []columnDef{
 	{"diagnosis", "诊断", 22, func(v repository.Visit, _ int) string { return v.Diagnosis }},
 	{"prescription", "处方", 22, func(v repository.Visit, _ int) string { return strings.Join(v.Prescription, "、") }},
 	{"destination", "去向", 10, func(v repository.Visit, _ int) string {
-		if label, ok := destMap[v.Destination]; ok {
-			return label
-		}
-		return v.Destination
+		return destinationDisplayName(v.Destination)
 	}},
 	{"follow_up_at", "复诊时间", 18, func(v repository.Visit, _ int) string {
 		if v.FollowUpAt != nil {

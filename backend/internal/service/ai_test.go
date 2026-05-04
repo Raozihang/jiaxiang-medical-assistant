@@ -67,6 +67,9 @@ type customAIProviderStub struct {
 	analyzeResult          AnalyzeResult
 	recommendResult        RecommendResult
 	interactionResult      InteractionCheckResult
+	lastAnalyzeInput       AnalyzeInput
+	lastTriageInput        TriageInput
+	lastRecommendInput     RecommendInput
 }
 
 type failingAIProviderStub struct{}
@@ -87,18 +90,21 @@ func (s *failingAIProviderStub) InteractionCheck(_ context.Context, _ Interactio
 	return InteractionCheckResult{}, errors.New("provider unavailable")
 }
 
-func (s *customAIProviderStub) Analyze(_ context.Context, _ AnalyzeInput) (AnalyzeResult, error) {
+func (s *customAIProviderStub) Analyze(_ context.Context, input AnalyzeInput) (AnalyzeResult, error) {
 	s.analyzeCalled = true
+	s.lastAnalyzeInput = input
 	return s.analyzeResult, nil
 }
 
-func (s *customAIProviderStub) Triage(_ context.Context, _ TriageInput) (TriageResult, error) {
+func (s *customAIProviderStub) Triage(_ context.Context, input TriageInput) (TriageResult, error) {
 	s.triageCalled = true
+	s.lastTriageInput = input
 	return TriageResult{}, nil
 }
 
-func (s *customAIProviderStub) Recommend(_ context.Context, _ RecommendInput) (RecommendResult, error) {
+func (s *customAIProviderStub) Recommend(_ context.Context, input RecommendInput) (RecommendResult, error) {
 	s.recommendCalled = true
+	s.lastRecommendInput = input
 	return s.recommendResult, nil
 }
 

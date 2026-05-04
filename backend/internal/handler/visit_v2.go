@@ -16,17 +16,21 @@ type VisitHandler struct {
 }
 
 type CreateVisitRequest struct {
-	StudentID   string   `json:"student_id" binding:"required"`
-	Symptoms    []string `json:"symptoms"`
-	Description string   `json:"description"`
+	StudentID         string   `json:"student_id" binding:"required"`
+	Symptoms          []string `json:"symptoms"`
+	Description       string   `json:"description"`
+	TemperatureStatus string   `json:"temperature_status"`
+	TemperatureValue  *float64 `json:"temperature_value"`
 }
 
 type UpdateVisitRequest struct {
-	Diagnosis    *string  `json:"diagnosis"`
-	Prescription []string `json:"prescription"`
-	Destination  *string  `json:"destination"`
-	FollowUpAt   *string  `json:"follow_up_at"`
-	FollowUpNote *string  `json:"follow_up_note"`
+	Diagnosis         *string  `json:"diagnosis"`
+	Prescription      []string `json:"prescription"`
+	Destination       *string  `json:"destination"`
+	TemperatureStatus *string  `json:"temperature_status"`
+	TemperatureValue  *float64 `json:"temperature_value"`
+	FollowUpAt        *string  `json:"follow_up_at"`
+	FollowUpNote      *string  `json:"follow_up_note"`
 }
 
 func NewVisitHandler(visitService *service.VisitService) *VisitHandler {
@@ -64,9 +68,11 @@ func (h *VisitHandler) Create(c *gin.Context) {
 	}
 
 	visit, err := h.visitService.Create(c.Request.Context(), service.CreateVisitInput{
-		StudentID:   req.StudentID,
-		Symptoms:    req.Symptoms,
-		Description: req.Description,
+		StudentID:         req.StudentID,
+		Symptoms:          req.Symptoms,
+		Description:       req.Description,
+		TemperatureStatus: req.TemperatureStatus,
+		TemperatureValue:  req.TemperatureValue,
 	})
 	if err != nil {
 		handleDomainError(c, err)
@@ -99,12 +105,24 @@ func (h *VisitHandler) Update(c *gin.Context) {
 	}
 
 	visit, err := h.visitService.Update(c.Request.Context(), c.Param("id"), service.UpdateVisitInput{
-		Diagnosis:    req.Diagnosis,
-		Prescription: prescription,
-		Destination:  req.Destination,
-		FollowUpAt:   req.FollowUpAt,
-		FollowUpNote: req.FollowUpNote,
+		Diagnosis:         req.Diagnosis,
+		Prescription:      prescription,
+		Destination:       req.Destination,
+		TemperatureStatus: req.TemperatureStatus,
+		TemperatureValue:  req.TemperatureValue,
+		FollowUpAt:        req.FollowUpAt,
+		FollowUpNote:      req.FollowUpNote,
 	})
+	if err != nil {
+		handleDomainError(c, err)
+		return
+	}
+
+	response.Success(c, visit)
+}
+
+func (h *VisitHandler) RegenerateAIAnalysis(c *gin.Context) {
+	visit, err := h.visitService.RegenerateAIAnalysis(c.Request.Context(), c.Param("id"))
 	if err != nil {
 		handleDomainError(c, err)
 		return

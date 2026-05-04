@@ -1,5 +1,5 @@
-import { http } from "@/shared/api/http";
 import { unwrapApiData } from "@/shared/api/helpers";
+import { http } from "@/shared/api/http";
 
 export type ColumnOption = {
   key: string;
@@ -33,6 +33,14 @@ export type ScheduledReportFile = {
   modified_at: string;
 };
 
+function requireApiData<T>(value: unknown, message: string): T {
+  const data = unwrapApiData<T>(value);
+  if (!data) {
+    throw new Error(message);
+  }
+  return data;
+}
+
 async function downloadBlob(path: string, method: "get" | "post" = "get"): Promise<void> {
   const response = await http.request({
     url: path,
@@ -42,13 +50,15 @@ async function downloadBlob(path: string, method: "get" | "post" = "get"): Promi
   });
 
   const disposition = response.headers["content-disposition"] ?? "";
-  const match = disposition.match(/filename="?([^"]+)"?/);
-  const filename = match?.[1] ?? "报表.xlsx";
+  const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+  const plainMatch = disposition.match(/filename="?([^";]+)"?/i);
+  const rawFilename = utf8Match?.[1] ?? plainMatch?.[1] ?? "报表.xlsx";
+  const filename = decodeURIComponent(rawFilename.trim().replace(/^UTF-8''/i, ""));
 
   const url = URL.createObjectURL(response.data as Blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = decodeURIComponent(filename);
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -72,7 +82,7 @@ export async function createTemplate(data: {
   title?: string;
 }): Promise<ReportTemplate> {
   const resp = await http.post("/report-templates", data);
-  return unwrapApiData<ReportTemplate>(resp.data)!;
+  return requireApiData<ReportTemplate>(resp.data, "报表模板创建响应为空");
 }
 
 export async function updateTemplate(
@@ -80,7 +90,7 @@ export async function updateTemplate(
   data: { name?: string; columns?: string[]; title?: string },
 ): Promise<ReportTemplate> {
   const resp = await http.patch(`/report-templates/${id}`, data);
-  return unwrapApiData<ReportTemplate>(resp.data)!;
+  return requireApiData<ReportTemplate>(resp.data, "报表模板更新响应为空");
 }
 
 export async function deleteTemplate(id: string): Promise<void> {
@@ -101,7 +111,7 @@ export async function createSchedule(data: {
   cron_expr: string;
 }): Promise<ReportSchedule> {
   const resp = await http.post("/report-schedules", data);
-  return unwrapApiData<ReportSchedule>(resp.data)!;
+  return requireApiData<ReportSchedule>(resp.data, "定时报表创建响应为空");
 }
 
 export async function updateSchedule(
@@ -109,7 +119,7 @@ export async function updateSchedule(
   data: { cron_expr?: string; enabled?: boolean },
 ): Promise<ReportSchedule> {
   const resp = await http.patch(`/report-schedules/${id}`, data);
-  return unwrapApiData<ReportSchedule>(resp.data)!;
+  return requireApiData<ReportSchedule>(resp.data, "定时报表更新响应为空");
 }
 
 export async function deleteSchedule(id: string): Promise<void> {

@@ -126,14 +126,6 @@ var visitHeaders = []string{
 
 var visitColWidths = []float64{6, 12, 12, 22, 28, 22, 22, 10, 18, 22, 20}
 
-var destMap = map[string]string{
-	"classroom":   "返回教室",
-	"dormitory":   "返回寝室",
-	"observation": "留观",
-	"hospital":    "转院",
-	"home":        "离校回家",
-}
-
 func writeVisitSheet(f *excelize.File, sheet string, visits []repository.Visit) {
 	if sheet != "Sheet1" {
 		idx, _ := f.NewSheet(sheet)
@@ -183,10 +175,7 @@ func writeVisitSheet(f *excelize.File, sheet string, visits []repository.Visit) 
 		row := i + 2
 		isEven := i%2 == 0
 
-		dest := v.Destination
-		if label, ok := destMap[dest]; ok {
-			dest = label
-		}
+		dest := destinationDisplayName(v.Destination)
 		followUp := ""
 		if v.FollowUpAt != nil {
 			followUp = v.FollowUpAt.Format("2006-01-02 15:04")
@@ -291,14 +280,9 @@ func writeSummarySheetWithTitle(f *excelize.File, sheet string, report VisitPeri
 		Border:    thinBorder,
 	})
 
-	periodNames := map[string]string{
-		"daily":   "日报",
-		"weekly":  "周报",
-		"monthly": "月报",
-	}
 	title := strings.TrimSpace(customTitle)
 	if title == "" {
-		title = periodNames[report.Period]
+		title = periodDisplayName(report.Period)
 		if title != "" {
 			title = fmt.Sprintf("嘉祥智能医务室 %s", title)
 		}
@@ -350,22 +334,10 @@ func writeSummarySheetWithTitle(f *excelize.File, sheet string, report VisitPeri
 	_ = f.SetCellStyle(sheet, fmt.Sprintf("A%d", distStart), fmt.Sprintf("B%d", distStart), sectionStyle)
 	_ = f.MergeCell(sheet, fmt.Sprintf("A%d", distStart), fmt.Sprintf("B%d", distStart))
 
-	destLabels := map[string]string{
-		"classroom":   "返回教室",
-		"dormitory":   "返回寝室",
-		"observation": "留观",
-		"hospital":    "转院",
-		"home":        "离校回家",
-		"unknown":     "未登记",
-	}
-
 	i := 0
 	for dest, count := range report.DestinationDistribution {
 		row := distStart + 1 + i
-		destLabel := dest
-		if l, ok := destLabels[dest]; ok {
-			destLabel = l
-		}
+		destLabel := destinationDisplayName(dest)
 		_ = f.SetCellValue(sheet, fmt.Sprintf("A%d", row), destLabel)
 		_ = f.SetCellStyle(sheet, fmt.Sprintf("A%d", row), fmt.Sprintf("A%d", row), labelStyle)
 		_ = f.SetCellValue(sheet, fmt.Sprintf("B%d", row), count)

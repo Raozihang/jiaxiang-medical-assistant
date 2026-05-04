@@ -21,6 +21,7 @@ type SafetyAlert struct {
 	Message     string     `json:"message"`
 	VisitID     string     `json:"visit_id"`
 	StudentID   string     `json:"student_id"`
+	StudentName string     `json:"student_name,omitempty"`
 	CreatedAt   time.Time  `json:"created_at"`
 	TriggeredAt time.Time  `json:"triggered_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
@@ -155,6 +156,7 @@ func buildObservationTimeoutAlerts(visits []repository.Visit, now time.Time) []S
 			Message:     "留观时间已超过2小时",
 			VisitID:     visit.ID,
 			StudentID:   visit.StudentID,
+			StudentName: strings.TrimSpace(visit.StudentName),
 			CreatedAt:   visit.CreatedAt,
 			TriggeredAt: visit.CreatedAt.Add(2 * time.Hour),
 			UpdatedAt:   now,
@@ -182,6 +184,7 @@ func buildVisitUnclosedAlerts(visits []repository.Visit, now time.Time) []Safety
 			Message:     "就诊记录超过30分钟未关闭",
 			VisitID:     visit.ID,
 			StudentID:   visit.StudentID,
+			StudentName: strings.TrimSpace(visit.StudentName),
 			CreatedAt:   visit.CreatedAt,
 			TriggeredAt: visit.CreatedAt.Add(30 * time.Minute),
 			UpdatedAt:   now,
@@ -244,6 +247,7 @@ func buildRepeatVisit3DAlerts(visits []repository.Visit, now time.Time) []Safety
 			Message:     fmt.Sprintf("该学生3天内已就诊%d次", recentCount),
 			VisitID:     latest.ID,
 			StudentID:   studentID,
+			StudentName: strings.TrimSpace(latest.StudentName),
 			CreatedAt:   latest.CreatedAt,
 			TriggeredAt: latest.CreatedAt,
 			UpdatedAt:   now,

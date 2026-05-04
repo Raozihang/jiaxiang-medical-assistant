@@ -109,7 +109,7 @@ func buildScenarioMessage(input DispatchScenarioInput) (string, error) {
 	case "visit_completed":
 		parts := []string{studentName + "已完成本次就诊。"}
 		if destination != "" {
-			parts = append(parts, "去向："+destination+"。")
+			parts = append(parts, "去向："+destinationDisplayName(destination)+"。")
 		}
 		if note != "" {
 			parts = append(parts, "备注："+note+"。")
@@ -118,7 +118,7 @@ func buildScenarioMessage(input DispatchScenarioInput) (string, error) {
 	case "observation_notice":
 		parts := []string{studentName + "目前需要留观，请及时关注。"}
 		if destination != "" {
-			parts = append(parts, "留观点："+destination+"。")
+			parts = append(parts, "留观点："+destinationDisplayName(destination)+"。")
 		}
 		if note != "" {
 			parts = append(parts, "说明："+note+"。")
@@ -130,7 +130,7 @@ func buildScenarioMessage(input DispatchScenarioInput) (string, error) {
 			parts = append(parts, "复诊时间："+followUpAt+"。")
 		}
 		if destination != "" {
-			parts = append(parts, "复诊地点："+destination+"。")
+			parts = append(parts, "复诊地点："+destinationDisplayName(destination)+"。")
 		}
 		if note != "" {
 			parts = append(parts, "备注："+note+"。")

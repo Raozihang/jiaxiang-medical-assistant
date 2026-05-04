@@ -41,10 +41,50 @@ func AuthRequired(authService *service.AuthService) gin.HandlerFunc {
 	}
 }
 
+func RequireRoles(roles ...string) gin.HandlerFunc {
+	allowed := make(map[string]struct{}, len(roles))
+	for _, role := range roles {
+		normalized := strings.TrimSpace(role)
+		if normalized != "" {
+			allowed[normalized] = struct{}{}
+		}
+	}
+
+	return func(c *gin.Context) {
+		roleValue, ok := c.Get("auth_role")
+		if !ok {
+			writeAuthError(c)
+			return
+		}
+
+		role, ok := roleValue.(string)
+		if !ok {
+			writeForbiddenError(c)
+			return
+		}
+		if _, ok := allowed[role]; !ok {
+			writeForbiddenError(c)
+			return
+		}
+
+		c.Next()
+	}
+}
+
 func writeAuthError(c *gin.Context) {
 	c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 		"code":       1002,
 		"message":    "未授权访问",
+		"data":       gin.H{},
+		"request_id": GetRequestID(c),
+		"timestamp":  time.Now().UTC().Format(time.RFC3339),
+	})
+}
+
+func writeForbiddenError(c *gin.Context) {
+	c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+		"code":       1003,
+		"message":    "权限不足",
 		"data":       gin.H{},
 		"request_id": GetRequestID(c),
 		"timestamp":  time.Now().UTC().Format(time.RFC3339),

@@ -30,15 +30,16 @@ func (r *MockVisitRepository) EnsureSeedData(_ context.Context) error {
 	now := time.Now().UTC()
 	id := uuid.NewString()
 	r.visits[id] = Visit{
-		ID:          id,
-		StudentID:   "20260001",
-		StudentName: "张三",
-		ClassName:   "三年级2班",
-		Symptoms:    []string{"发热"},
-		Description: "上午体育课后感到不适",
-		Destination: "observation",
-		CreatedAt:   now.Add(-15 * time.Minute),
-		UpdatedAt:   now.Add(-15 * time.Minute),
+		ID:                id,
+		StudentID:         "20260001",
+		StudentName:       "张三",
+		ClassName:         "三年级2班",
+		Symptoms:          []string{"发热"},
+		Description:       "上午体育课后感到不适",
+		Destination:       "observation",
+		TemperatureStatus: "normal",
+		CreatedAt:         now.Add(-15 * time.Minute),
+		UpdatedAt:         now.Add(-15 * time.Minute),
 	}
 
 	return nil
@@ -79,15 +80,18 @@ func (r *MockVisitRepository) Create(_ context.Context, input CreateVisitInput) 
 	}
 	id := uuid.NewString()
 	visit := Visit{
-		ID:          id,
-		StudentID:   input.StudentID,
-		StudentName: "学生-" + input.StudentID,
-		ClassName:   "未知班级",
-		Symptoms:    input.Symptoms,
-		Description: strings.TrimSpace(input.Description),
-		Destination: "observation",
-		CreatedAt:   now,
-		UpdatedAt:   now,
+		ID:                id,
+		StudentID:         input.StudentID,
+		StudentName:       "学生-" + input.StudentID,
+		ClassName:         "未知班级",
+		Symptoms:          input.Symptoms,
+		Description:       strings.TrimSpace(input.Description),
+		Destination:       "observation",
+		TemperatureStatus: normalizeTemperatureStatus(input.TemperatureStatus),
+		TemperatureValue:  input.TemperatureValue,
+		AIAnalysis:        AIAnalysis{Status: "not_started"},
+		CreatedAt:         now,
+		UpdatedAt:         now,
 	}
 	r.visits[id] = visit
 
@@ -124,6 +128,19 @@ func (r *MockVisitRepository) Update(_ context.Context, id string, input UpdateV
 	if input.Destination != nil {
 		visit.Destination = strings.TrimSpace(*input.Destination)
 	}
+	if input.TemperatureStatus != nil {
+		visit.TemperatureStatus = strings.TrimSpace(*input.TemperatureStatus)
+		if visit.TemperatureStatus == "normal" {
+			visit.TemperatureValue = nil
+		}
+	}
+	if input.TemperatureValue != nil {
+		value := *input.TemperatureValue
+		visit.TemperatureValue = &value
+		if strings.TrimSpace(visit.TemperatureStatus) == "" {
+			visit.TemperatureStatus = "measured"
+		}
+	}
 	if input.SetFollowUpAt {
 		if input.FollowUpAt == nil {
 			visit.FollowUpAt = nil
@@ -140,6 +157,58 @@ func (r *MockVisitRepository) Update(_ context.Context, id string, input UpdateV
 			visit.FollowUpNote = &note
 		}
 	}
+	visit.UpdatedAt = time.Now().UTC()
+	r.visits[id] = visit
+
+	return visit, nil
+}
+
+func (r *MockVisitRepository) UpdateAIAnalysis(_ context.Context, id string, input UpdateAIAnalysisInput) (Visit, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	visit, ok := r.visits[id]
+	if !ok {
+		return Visit{}, ErrNotFound
+	}
+
+	status := strings.TrimSpace(input.Status)
+	if status == "" {
+		status = visit.AIAnalysis.Status
+	}
+	if status == "" {
+		status = "not_started"
+	}
+
+	analysis := visit.AIAnalysis
+	analysis.Status = status
+	analysis.Error = strings.TrimSpace(input.Error)
+	if input.QueuedAt != nil {
+		analysis.QueuedAt = input.QueuedAt
+	}
+	if input.ProcessedAt != nil || status == "queued" {
+		analysis.ProcessedAt = input.ProcessedAt
+	}
+	if input.ClearResults {
+		analysis.Analyze = nil
+		analysis.Triage = nil
+		analysis.Recommend = nil
+		analysis.Interaction = nil
+	}
+	if input.Analyze != nil {
+		analysis.Analyze = append(analysis.Analyze[:0], input.Analyze...)
+	}
+	if input.Triage != nil {
+		analysis.Triage = append(analysis.Triage[:0], input.Triage...)
+	}
+	if input.Recommend != nil {
+		analysis.Recommend = append(analysis.Recommend[:0], input.Recommend...)
+	}
+	if input.Interaction != nil {
+		analysis.Interaction = append(analysis.Interaction[:0], input.Interaction...)
+	}
+
+	visit.AIAnalysis = analysis
 	visit.UpdatedAt = time.Now().UTC()
 	r.visits[id] = visit
 
@@ -200,6 +269,14 @@ func (r *MockVisitRepository) CountDueFollowUps(_ context.Context, now time.Time
 func dayStart(now time.Time) time.Time {
 	ts := now.UTC()
 	return time.Date(ts.Year(), ts.Month(), ts.Day(), 0, 0, 0, 0, time.UTC)
+}
+
+func normalizeTemperatureStatus(status string) string {
+	status = strings.TrimSpace(status)
+	if status == "" {
+		return "normal"
+	}
+	return status
 }
 
 func pageWindow(page int, pageSize int, total int) (int, int) {

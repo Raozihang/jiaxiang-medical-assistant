@@ -247,6 +247,9 @@ func (p *bailianProvider) Recommend(ctx context.Context, input RecommendInput) (
 		strings.Join(input.RiskFlags, ", "),
 		input.RAGContext,
 	)
+	if input.Temperature > 0 {
+		userMsg = fmt.Sprintf("体温：%.1fC\n%s", input.Temperature, userMsg)
+	}
 	raw, err := p.call(ctx, recommendSystemPrompt, userMsg, input.UseWebSearch)
 	if err != nil {
 		return RecommendResult{}, fmt.Errorf("AI recommend: %w", err)

@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 )
@@ -24,19 +25,33 @@ type PageResult[T any] struct {
 }
 
 type Visit struct {
-	ID           string     `json:"id"`
-	StudentID    string     `json:"student_id"`
-	StudentName  string     `json:"student_name"`
-	ClassName    string     `json:"class_name"`
-	Symptoms     []string   `json:"symptoms"`
-	Description  string     `json:"description"`
-	Diagnosis    string     `json:"diagnosis"`
-	Prescription []string   `json:"prescription"`
-	Destination  string     `json:"destination"`
-	FollowUpAt   *time.Time `json:"follow_up_at"`
-	FollowUpNote *string    `json:"follow_up_note"`
-	CreatedAt    time.Time  `json:"created_at"`
-	UpdatedAt    time.Time  `json:"updated_at"`
+	ID                string     `json:"id"`
+	StudentID         string     `json:"student_id"`
+	StudentName       string     `json:"student_name"`
+	ClassName         string     `json:"class_name"`
+	Symptoms          []string   `json:"symptoms"`
+	Description       string     `json:"description"`
+	TemperatureStatus string     `json:"temperature_status"`
+	TemperatureValue  *float64   `json:"temperature_value"`
+	Diagnosis         string     `json:"diagnosis"`
+	Prescription      []string   `json:"prescription"`
+	Destination       string     `json:"destination"`
+	FollowUpAt        *time.Time `json:"follow_up_at"`
+	FollowUpNote      *string    `json:"follow_up_note"`
+	AIAnalysis        AIAnalysis `json:"ai_analysis"`
+	CreatedAt         time.Time  `json:"created_at"`
+	UpdatedAt         time.Time  `json:"updated_at"`
+}
+
+type AIAnalysis struct {
+	Status      string          `json:"status"`
+	Error       string          `json:"error,omitempty"`
+	Analyze     json.RawMessage `json:"analyze,omitempty"`
+	Triage      json.RawMessage `json:"triage,omitempty"`
+	Recommend   json.RawMessage `json:"recommend,omitempty"`
+	Interaction json.RawMessage `json:"interaction,omitempty"`
+	QueuedAt    *time.Time      `json:"queued_at,omitempty"`
+	ProcessedAt *time.Time      `json:"processed_at,omitempty"`
 }
 
 type VisitListParams struct {
@@ -45,19 +60,35 @@ type VisitListParams struct {
 }
 
 type CreateVisitInput struct {
-	StudentID   string
-	Symptoms    []string
-	Description string
-	CreatedAt   *time.Time
+	StudentID         string
+	Symptoms          []string
+	Description       string
+	TemperatureStatus string
+	TemperatureValue  *float64
+	CreatedAt         *time.Time
 }
 
 type UpdateVisitInput struct {
-	Diagnosis     *string
-	Prescription  *[]string
-	Destination   *string
-	FollowUpAt    *time.Time
-	SetFollowUpAt bool
-	FollowUpNote  *string
+	Diagnosis         *string
+	Prescription      *[]string
+	Destination       *string
+	TemperatureStatus *string
+	TemperatureValue  *float64
+	FollowUpAt        *time.Time
+	SetFollowUpAt     bool
+	FollowUpNote      *string
+}
+
+type UpdateAIAnalysisInput struct {
+	Status       string
+	Error        string
+	Analyze      json.RawMessage
+	Triage       json.RawMessage
+	Recommend    json.RawMessage
+	Interaction  json.RawMessage
+	QueuedAt     *time.Time
+	ProcessedAt  *time.Time
+	ClearResults bool
 }
 
 type VisitRepository interface {
@@ -65,6 +96,7 @@ type VisitRepository interface {
 	Create(ctx context.Context, input CreateVisitInput) (Visit, error)
 	GetByID(ctx context.Context, id string) (Visit, error)
 	Update(ctx context.Context, id string, input UpdateVisitInput) (Visit, error)
+	UpdateAIAnalysis(ctx context.Context, id string, input UpdateAIAnalysisInput) (Visit, error)
 	CountToday(ctx context.Context, now time.Time) (int64, error)
 	CountObservationToday(ctx context.Context, now time.Time) (int64, error)
 	CountDueFollowUps(ctx context.Context, now time.Time) (int64, error)

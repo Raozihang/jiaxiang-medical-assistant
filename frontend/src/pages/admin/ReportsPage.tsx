@@ -7,6 +7,7 @@ import {
   Form,
   Input,
   Modal,
+  message,
   Popconfirm,
   Row,
   Segmented,
@@ -18,11 +19,29 @@ import {
   Tag,
   TimePicker,
   Typography,
-  message,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import dayjs from "dayjs";
+import type dayjs from "dayjs";
 import { useCallback, useEffect, useState } from "react";
+import { getErrorMessage } from "@/shared/api/helpers";
+import {
+  type ColumnOption,
+  createSchedule,
+  createTemplate,
+  deleteSchedule,
+  deleteTemplate,
+  downloadScheduleFile,
+  exportWithTemplate,
+  getColumnOptions,
+  listScheduleFiles,
+  listSchedules,
+  listTemplates,
+  type ReportSchedule,
+  type ReportTemplate,
+  type ScheduledReportFile,
+  triggerSchedule,
+  updateSchedule,
+} from "@/shared/api/report-templates";
 import {
   exportReportExcel,
   getDailyReport,
@@ -32,28 +51,12 @@ import {
   type ReportRankItem,
   type ReportTrend,
 } from "@/shared/api/reports";
-import {
-  createSchedule,
-  createTemplate,
-  downloadScheduleFile,
-  deleteSchedule,
-  deleteTemplate,
-  exportWithTemplate,
-  getColumnOptions,
-  listScheduleFiles,
-  listSchedules,
-  listTemplates,
-  triggerSchedule,
-  updateSchedule,
-  type ColumnOption,
-  type ReportSchedule,
-  type ReportTemplate,
-  type ScheduledReportFile,
-} from "@/shared/api/report-templates";
-import { getErrorMessage } from "@/shared/api/helpers";
+import { getPeriodLabel } from "@/shared/labels/localization";
 
 const defaultReport: PeriodReport = {
   period: "daily",
+  startAt: "",
+  endAt: "",
   generatedAt: "",
   summary: {
     totalVisits: 0,
@@ -66,6 +69,7 @@ const defaultReport: PeriodReport = {
   trends: [],
   topSymptoms: [],
   topMedicines: [],
+  destinationDistribution: {},
   raw: null,
 };
 
@@ -89,12 +93,6 @@ const rankColumns: ColumnsType<ReportRankItem> = [
 ];
 
 type ReportMode = "daily" | "weekly" | "monthly";
-
-const periodLabels: Record<string, string> = {
-  daily: "日报",
-  weekly: "周报",
-  monthly: "月报",
-};
 
 export function ReportsPage() {
   const [messageApi, contextHolder] = message.useMessage();
@@ -217,10 +215,7 @@ export function ReportsPage() {
 
   // ---- Schedule actions ----
 
-  const handleCreateSchedule = async (values: {
-    template_id: string;
-    time: dayjs.Dayjs;
-  }) => {
+  const handleCreateSchedule = async (values: { template_id: string; time: dayjs.Dayjs }) => {
     try {
       const cronExpr = values.time.format("HH:mm");
       await createSchedule({ template_id: values.template_id, cron_expr: cronExpr });
@@ -294,14 +289,14 @@ export function ReportsPage() {
       title: "报表类型",
       dataIndex: "period",
       width: 100,
-      render: (p: string) => <Tag color="blue">{periodLabels[p] ?? p}</Tag>,
+      render: (p: string) => <Tag color="blue">{getPeriodLabel(p)}</Tag>,
     },
     {
       title: "包含列",
       dataIndex: "columns",
       render: (cols: string[]) => {
         const colMap = Object.fromEntries(columnOptions.map((c) => [c.key, c.label]));
-        return cols.map((c) => colMap[c] ?? c).join("、");
+        return cols.map((c) => colMap[c] ?? "未知列").join("、");
       },
     },
     { title: "创建时间", dataIndex: "created_at", width: 180, render: formatDate },
@@ -465,10 +460,18 @@ export function ReportsPage() {
             <Statistic title="紧急就诊" value={report.summary.urgentVisits} loading={loading} />
           </Col>
           <Col span={8}>
-            <Statistic title="留观学生" value={report.summary.observationStudents} loading={loading} />
+            <Statistic
+              title="留观学生"
+              value={report.summary.observationStudents}
+              loading={loading}
+            />
           </Col>
           <Col span={8}>
-            <Statistic title="转诊数量" value={report.summary.hospitalReferrals} loading={loading} />
+            <Statistic
+              title="转诊数量"
+              value={report.summary.hospitalReferrals}
+              loading={loading}
+            />
           </Col>
           <Col span={8}>
             <Statistic title="返班数量" value={report.summary.returnClassCount} loading={loading} />
@@ -568,7 +571,11 @@ export function ReportsPage() {
           onFinish={handleCreateTemplate}
           initialValues={{ period: "daily", columns: columnOptions.map((c) => c.key) }}
         >
-          <Form.Item name="name" label="模板名称" rules={[{ required: true, message: "请输入模板名称" }]}>
+          <Form.Item
+            name="name"
+            label="模板名称"
+            rules={[{ required: true, message: "请输入模板名称" }]}
+          >
             <Input placeholder="例如：每日简报" />
           </Form.Item>
           <Form.Item name="period" label="报表类型" rules={[{ required: true }]}>
@@ -580,7 +587,11 @@ export function ReportsPage() {
               ]}
             />
           </Form.Item>
-          <Form.Item name="columns" label="包含列" rules={[{ required: true, message: "请至少选择一列" }]}>
+          <Form.Item
+            name="columns"
+            label="包含列"
+            rules={[{ required: true, message: "请至少选择一列" }]}
+          >
             <Checkbox.Group
               options={columnOptions.map((c) => ({ label: c.label, value: c.key }))}
             />
@@ -610,7 +621,7 @@ export function ReportsPage() {
               placeholder="选择报表模板"
               options={templates.map((t) => ({
                 value: t.id,
-                label: `${t.name} (${periodLabels[t.period] ?? t.period})`,
+                label: `${t.name} (${getPeriodLabel(t.period)})`,
               }))}
             />
           </Form.Item>

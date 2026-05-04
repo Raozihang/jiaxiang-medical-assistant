@@ -25,10 +25,14 @@ func registerRoutes(engine *gin.Engine, cfg config.Config, db *gorm.DB) (func(),
 	}
 	outboundCallService := service.NewOutboundCallService(outboundCallRepo, visitRepo, studentContactRepo, outboundProvider, cfg.Outbound.AliyunTemplateCode)
 
+	realtimeHub := service.NewRealtimeHub()
 	visitService := service.NewVisitService(visitRepo, outboundCallService)
+	visitService.SetRealtimeHub(realtimeHub)
 	medicineService := service.NewMedicineService(medicineRepo)
 	reportService := service.NewReportService(visitRepo, medicineRepo)
 	aiService := buildAIService(cfg, medicineRepo)
+	aiAnalysisService := service.NewAIAnalysisService(visitRepo, aiService)
+	visitService.SetAIAnalysisQueue(aiAnalysisService)
 	importService := service.NewImportService(visitRepo, importTaskRepo)
 	notificationService := service.NewNotificationService(notificationLogRepo)
 	studentContactService := service.NewStudentContactService(studentContactRepo)
@@ -48,6 +52,7 @@ func registerRoutes(engine *gin.Engine, cfg config.Config, db *gorm.DB) (func(),
 	}
 
 	runnerContext, cancelRunner := context.WithCancel(context.Background())
+	aiAnalysisService.Start(runnerContext, 2)
 	service.NewReportScheduleRunner(
 		reportTemplateService,
 		time.Minute,
@@ -67,6 +72,7 @@ func registerRoutes(engine *gin.Engine, cfg config.Config, db *gorm.DB) (func(),
 	outboundCallHandler := handler.NewOutboundCallHandler(outboundCallService, cfg.Outbound.AliyunCallbackSecret)
 	safetyHandler := handler.NewSafetyHandler(safetyService)
 	reportTemplateHandler := handler.NewReportTemplateHandler(reportTemplateService)
+	realtimeHandler := handler.NewRealtimeHandler(realtimeHub, visitService, authService)
 
 	api := engine.Group("/api/v1")
 	{
@@ -75,63 +81,74 @@ func registerRoutes(engine *gin.Engine, cfg config.Config, db *gorm.DB) (func(),
 		api.POST("/outbound-calls/callback/aliyun", outboundCallHandler.AliyunCallback)
 
 		api.POST("/visits", visitHandler.Create)
+		api.GET("/realtime/checkin", realtimeHandler.CheckIn)
+		api.GET("/realtime/doctor", realtimeHandler.Doctor)
 
 		protected := api.Group("")
 		protected.Use(middleware.AuthRequired(authService))
 		{
-			protected.GET("/visits", visitHandler.List)
-			protected.GET("/visits/:id", visitHandler.Detail)
-			protected.PATCH("/visits/:id", visitHandler.Update)
+			medical := protected.Group("")
+			medical.Use(middleware.RequireRoles("doctor", "admin"))
+			{
+				medical.GET("/visits", visitHandler.List)
+				medical.GET("/visits/:id", visitHandler.Detail)
+				medical.PATCH("/visits/:id", visitHandler.Update)
+				medical.POST("/visits/:id/ai-analysis/regenerate", visitHandler.RegenerateAIAnalysis)
 
-			protected.GET("/medicines", medicineHandler.List)
-			protected.POST("/medicines", medicineHandler.Create)
-			protected.POST("/medicines/inbound", medicineHandler.Inbound)
-			protected.POST("/medicines/outbound", medicineHandler.Outbound)
-			protected.PATCH("/medicines/:id/inventory", medicineHandler.UpdateInventory)
+				medical.GET("/medicines", medicineHandler.List)
+				medical.POST("/medicines", medicineHandler.Create)
+				medical.POST("/medicines/inbound", medicineHandler.Inbound)
+				medical.POST("/medicines/outbound", medicineHandler.Outbound)
+				medical.PATCH("/medicines/:id/inventory", medicineHandler.UpdateInventory)
 
-			protected.GET("/reports/overview", reportHandler.Overview)
-			protected.GET("/reports/daily", reportHandler.Daily)
-			protected.GET("/reports/weekly", reportHandler.Weekly)
-			protected.GET("/reports/monthly", reportHandler.Monthly)
-			protected.GET("/reports/export/daily", reportHandler.ExportDaily)
-			protected.GET("/reports/export/weekly", reportHandler.ExportWeekly)
-			protected.GET("/reports/export/monthly", reportHandler.ExportMonthly)
+				medical.POST("/ai/analyze", aiHandler.Analyze)
+				medical.POST("/ai/triage", aiHandler.Triage)
+				medical.POST("/ai/recommend", aiHandler.Recommend)
+				medical.POST("/ai/interaction-check", aiHandler.InteractionCheck)
+			}
 
-			protected.POST("/ai/analyze", aiHandler.Analyze)
-			protected.POST("/ai/triage", aiHandler.Triage)
-			protected.POST("/ai/recommend", aiHandler.Recommend)
-			protected.POST("/ai/interaction-check", aiHandler.InteractionCheck)
+			admin := protected.Group("")
+			admin.Use(middleware.RequireRoles("admin"))
+			{
+				admin.GET("/reports/overview", reportHandler.Overview)
+				admin.GET("/reports/daily", reportHandler.Daily)
+				admin.GET("/reports/weekly", reportHandler.Weekly)
+				admin.GET("/reports/monthly", reportHandler.Monthly)
+				admin.GET("/reports/export/daily", reportHandler.ExportDaily)
+				admin.GET("/reports/export/weekly", reportHandler.ExportWeekly)
+				admin.GET("/reports/export/monthly", reportHandler.ExportMonthly)
 
-			protected.POST("/import/visits", importHandler.ImportVisits)
-			protected.GET("/import/tasks", importHandler.Tasks)
-			protected.GET("/import/tasks/:id", importHandler.TaskDetail)
+				admin.POST("/import/visits", importHandler.ImportVisits)
+				admin.GET("/import/tasks", importHandler.Tasks)
+				admin.GET("/import/tasks/:id", importHandler.TaskDetail)
 
-			protected.POST("/notifications/send", notificationHandler.Send)
-			protected.POST("/notifications/dispatch", notificationHandler.Dispatch)
-			protected.GET("/notifications/logs", notificationHandler.Logs)
-			protected.GET("/students/contacts", studentContactHandler.List)
-			protected.PUT("/students/:studentId/contact", studentContactHandler.Update)
-			protected.GET("/outbound-calls", outboundCallHandler.List)
-			protected.POST("/outbound-calls/:id/retry", outboundCallHandler.Retry)
+				admin.POST("/notifications/send", notificationHandler.Send)
+				admin.POST("/notifications/dispatch", notificationHandler.Dispatch)
+				admin.GET("/notifications/logs", notificationHandler.Logs)
+				admin.GET("/students/contacts", studentContactHandler.List)
+				admin.PUT("/students/:studentId/contact", studentContactHandler.Update)
+				admin.GET("/outbound-calls", outboundCallHandler.List)
+				admin.POST("/outbound-calls/:id/retry", outboundCallHandler.Retry)
 
-			protected.GET("/safety/alerts", safetyHandler.Alerts)
-			protected.PATCH("/safety/alerts/:id", safetyHandler.UpdateAlert)
+				admin.GET("/safety/alerts", safetyHandler.Alerts)
+				admin.PATCH("/safety/alerts/:id", safetyHandler.UpdateAlert)
 
-			protected.GET("/report-templates/columns", reportTemplateHandler.ColumnOptions)
-			protected.POST("/report-templates", reportTemplateHandler.CreateTemplate)
-			protected.GET("/report-templates", reportTemplateHandler.ListTemplates)
-			protected.GET("/report-templates/:id", reportTemplateHandler.GetTemplate)
-			protected.PATCH("/report-templates/:id", reportTemplateHandler.UpdateTemplate)
-			protected.DELETE("/report-templates/:id", reportTemplateHandler.DeleteTemplate)
-			protected.GET("/report-templates/:id/export", reportTemplateHandler.ExportWithTemplate)
+				admin.GET("/report-templates/columns", reportTemplateHandler.ColumnOptions)
+				admin.POST("/report-templates", reportTemplateHandler.CreateTemplate)
+				admin.GET("/report-templates", reportTemplateHandler.ListTemplates)
+				admin.GET("/report-templates/:id", reportTemplateHandler.GetTemplate)
+				admin.PATCH("/report-templates/:id", reportTemplateHandler.UpdateTemplate)
+				admin.DELETE("/report-templates/:id", reportTemplateHandler.DeleteTemplate)
+				admin.GET("/report-templates/:id/export", reportTemplateHandler.ExportWithTemplate)
 
-			protected.POST("/report-schedules", reportTemplateHandler.CreateSchedule)
-			protected.GET("/report-schedules", reportTemplateHandler.ListSchedules)
-			protected.POST("/report-schedules/:id/run", reportTemplateHandler.TriggerSchedule)
-			protected.GET("/report-schedules/:id/files", reportTemplateHandler.ListScheduleFiles)
-			protected.GET("/report-schedules/:id/files/*filename", reportTemplateHandler.DownloadScheduleFile)
-			protected.PATCH("/report-schedules/:id", reportTemplateHandler.UpdateSchedule)
-			protected.DELETE("/report-schedules/:id", reportTemplateHandler.DeleteSchedule)
+				admin.POST("/report-schedules", reportTemplateHandler.CreateSchedule)
+				admin.GET("/report-schedules", reportTemplateHandler.ListSchedules)
+				admin.POST("/report-schedules/:id/run", reportTemplateHandler.TriggerSchedule)
+				admin.GET("/report-schedules/:id/files", reportTemplateHandler.ListScheduleFiles)
+				admin.GET("/report-schedules/:id/files/*filename", reportTemplateHandler.DownloadScheduleFile)
+				admin.PATCH("/report-schedules/:id", reportTemplateHandler.UpdateSchedule)
+				admin.DELETE("/report-schedules/:id", reportTemplateHandler.DeleteSchedule)
+			}
 		}
 	}
 

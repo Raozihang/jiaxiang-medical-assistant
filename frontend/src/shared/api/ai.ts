@@ -1,13 +1,13 @@
-import { http } from "@/shared/api/http";
 import {
   asRecord,
   pickFirst,
   toBoolean,
   toNumber,
-  toText,
   toStringArray,
+  toText,
   unwrapApiData,
 } from "@/shared/api/helpers";
+import { http } from "@/shared/api/http";
 
 const AI_REQUEST_TIMEOUT_MS = 60_000;
 
@@ -15,6 +15,7 @@ export type AnalyzeSymptomsPayload = {
   visit_id?: string;
   symptoms: string[];
   description?: string;
+  temperature?: number;
 };
 
 export type StructuredSymptom = {
@@ -38,6 +39,7 @@ export type TriagePayload = {
   visit_id?: string;
   symptoms: string[];
   description?: string;
+  temperature?: number;
   analysis_summary?: string;
 };
 
@@ -54,6 +56,7 @@ export type RecommendPayload = {
   visit_id?: string;
   symptoms: string[];
   diagnosis?: string;
+  temperature?: number;
   triage_level?: string;
   destination?: string;
   allergies?: string[];
@@ -169,7 +172,7 @@ function parseInteractionWarning(item: unknown): InteractionWarning {
   };
 }
 
-function parseAnalyzeResult(payload: unknown): AnalyzeResult {
+export function parseAnalyzeResult(payload: unknown): AnalyzeResult {
   const data = unwrapApiData<unknown>(payload);
   const record = asRecord(data);
 
@@ -192,17 +195,30 @@ function parseAnalyzeResult(payload: unknown): AnalyzeResult {
         ? structuredSymptoms
         : matchedSignals.map((item) => ({ name: item, severity: riskLevel || undefined })),
     possibleConditions: toStringArray(
-      pickFirst(record, ["possible_conditions", "conditions", "diagnosis_candidates", "possible_causes"]),
+      pickFirst(record, [
+        "possible_conditions",
+        "conditions",
+        "diagnosis_candidates",
+        "possible_causes",
+      ]),
     ),
-    riskFlags: toStringArray(pickFirst(record, ["risk_flags", "alerts", "red_flags", "matched_signals"])),
+    riskFlags: toStringArray(
+      pickFirst(record, ["risk_flags", "alerts", "red_flags", "matched_signals"]),
+    ),
     recommendations: toStringArray(
-      pickFirst(record, ["recommendations", "advice", "next_steps", "suggestions", "suggested_actions"]),
+      pickFirst(record, [
+        "recommendations",
+        "advice",
+        "next_steps",
+        "suggestions",
+        "suggested_actions",
+      ]),
     ),
     raw: data,
   };
 }
 
-function parseTriageResult(payload: unknown): TriageResult {
+export function parseTriageResult(payload: unknown): TriageResult {
   const data = unwrapApiData<unknown>(payload);
   const record = asRecord(data);
 
@@ -216,21 +232,29 @@ function parseTriageResult(payload: unknown): TriageResult {
       toText(pickFirst(record, ["reason", "rationale", "summary"])) ||
       "AI 建议优先结合现场问诊确认",
     recommendations: toStringArray(
-      pickFirst(record, ["recommendations", "suggestions", "actions", "next_steps", "suggested_actions"]),
+      pickFirst(record, [
+        "recommendations",
+        "suggestions",
+        "actions",
+        "next_steps",
+        "suggested_actions",
+      ]),
     ),
     riskFlags: toStringArray(pickFirst(record, ["risk_flags", "alerts", "red_flags"])),
     raw: data,
   };
 }
 
-function parseRecommendResult(payload: unknown): RecommendResult {
+export function parseRecommendResult(payload: unknown): RecommendResult {
   const data = unwrapApiData<unknown>(payload);
   const record = asRecord(data);
 
   const medicineSource = record
     ? pickFirst(record, ["medicines", "recommendations", "items", "list"])
     : [];
-  const medicines = Array.isArray(medicineSource) ? medicineSource.map(parseMedicineRecommendation) : [];
+  const medicines = Array.isArray(medicineSource)
+    ? medicineSource.map(parseMedicineRecommendation)
+    : [];
 
   const hints = toStringArray(pickFirst(record, ["medicine_hints"]));
 
@@ -246,7 +270,9 @@ function parseRecommendResult(payload: unknown): RecommendResult {
             reason: "AI 推荐提示",
             caution: "",
           })),
-    advice: toStringArray(pickFirst(record, ["advice", "instructions", "recommendations", "care_plan"])),
+    advice: toStringArray(
+      pickFirst(record, ["advice", "instructions", "recommendations", "care_plan"]),
+    ),
     contraindications: toStringArray(
       pickFirst(record, ["contraindications", "forbidden", "warnings"]),
     ),
@@ -257,7 +283,7 @@ function parseRecommendResult(payload: unknown): RecommendResult {
   };
 }
 
-function parseInteractionResult(payload: unknown): InteractionCheckResult {
+export function parseInteractionResult(payload: unknown): InteractionCheckResult {
   const data = unwrapApiData<unknown>(payload);
   const record = asRecord(data);
 
@@ -298,6 +324,8 @@ export async function recommendMedicines(payload: RecommendPayload) {
 }
 
 export async function checkMedicineInteractions(payload: InteractionCheckPayload) {
-  const response = await http.post("/ai/interaction-check", payload, { timeout: AI_REQUEST_TIMEOUT_MS });
+  const response = await http.post("/ai/interaction-check", payload, {
+    timeout: AI_REQUEST_TIMEOUT_MS,
+  });
   return parseInteractionResult(response.data);
 }

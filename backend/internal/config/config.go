@@ -34,12 +34,14 @@ type ReportConfig struct {
 }
 
 type AuthConfig struct {
-	JWTSecret      string
-	JWTExpiresIn   int
-	DoctorAccount  string
-	DoctorPassword string
-	AdminAccount   string
-	AdminPassword  string
+	JWTSecret       string
+	JWTExpiresIn    int
+	StudentAccount  string
+	StudentPassword string
+	DoctorAccount   string
+	DoctorPassword  string
+	AdminAccount    string
+	AdminPassword   string
 }
 
 type DBConfig struct {
@@ -88,12 +90,14 @@ func Load() Config {
 		AppPort:  getEnvAsInt("APP_PORT", 8080),
 		DataMode: getEnv("APP_DATA_MODE", "db"),
 		Auth: AuthConfig{
-			JWTSecret:      getEnv("AUTH_JWT_SECRET", ""),
-			JWTExpiresIn:   getEnvAsInt("AUTH_JWT_EXPIRES_IN", 7200),
-			DoctorAccount:  getEnv("AUTH_DOCTOR_ACCOUNT", "doctor"),
-			DoctorPassword: getEnv("AUTH_DOCTOR_PASSWORD", ""),
-			AdminAccount:   getEnv("AUTH_ADMIN_ACCOUNT", "admin"),
-			AdminPassword:  getEnv("AUTH_ADMIN_PASSWORD", ""),
+			JWTSecret:       getEnv("AUTH_JWT_SECRET", ""),
+			JWTExpiresIn:    getEnvAsInt("AUTH_JWT_EXPIRES_IN", 7200),
+			StudentAccount:  getEnv("AUTH_STUDENT_ACCOUNT", "student"),
+			StudentPassword: getEnv("AUTH_STUDENT_PASSWORD", ""),
+			DoctorAccount:   getEnv("AUTH_DOCTOR_ACCOUNT", "doctor"),
+			DoctorPassword:  getEnv("AUTH_DOCTOR_PASSWORD", ""),
+			AdminAccount:    getEnv("AUTH_ADMIN_ACCOUNT", "admin"),
+			AdminPassword:   getEnv("AUTH_ADMIN_PASSWORD", ""),
 		},
 		DB: DBConfig{
 			Host:     getEnv("DB_HOST", ""),
@@ -139,15 +143,19 @@ func (c AuthConfig) Validate() error {
 		return errors.New("AUTH_JWT_SECRET 必须替换为自定义值")
 	}
 
+	studentAccount := strings.TrimSpace(c.StudentAccount)
 	doctorAccount := strings.TrimSpace(c.DoctorAccount)
 	adminAccount := strings.TrimSpace(c.AdminAccount)
-	if doctorAccount == "" || adminAccount == "" {
-		return errors.New("AUTH_DOCTOR_ACCOUNT 和 AUTH_ADMIN_ACCOUNT 不能为空")
+	if studentAccount == "" || doctorAccount == "" || adminAccount == "" {
+		return errors.New("AUTH_STUDENT_ACCOUNT、AUTH_DOCTOR_ACCOUNT 和 AUTH_ADMIN_ACCOUNT 不能为空")
 	}
-	if doctorAccount == adminAccount {
-		return errors.New("AUTH_DOCTOR_ACCOUNT 和 AUTH_ADMIN_ACCOUNT 不能相同")
+	if hasDuplicateValues(studentAccount, doctorAccount, adminAccount) {
+		return errors.New("AUTH_STUDENT_ACCOUNT、AUTH_DOCTOR_ACCOUNT 和 AUTH_ADMIN_ACCOUNT 不能相同")
 	}
 
+	if isUnsafePassword(c.StudentPassword, "replace-with-student-password") {
+		return errors.New("AUTH_STUDENT_PASSWORD 必须设置为非默认值")
+	}
 	if isUnsafePassword(c.DoctorPassword, "replace-with-doctor-password") {
 		return errors.New("AUTH_DOCTOR_PASSWORD 必须设置为非默认值")
 	}
@@ -170,6 +178,17 @@ func isUnsafePassword(password string, placeholder string) bool {
 	default:
 		return false
 	}
+}
+
+func hasDuplicateValues(values ...string) bool {
+	seen := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		if _, ok := seen[value]; ok {
+			return true
+		}
+		seen[value] = struct{}{}
+	}
+	return false
 }
 
 func (c Config) ResolveDataMode(hasDB bool) string {

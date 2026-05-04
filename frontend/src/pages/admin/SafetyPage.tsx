@@ -1,19 +1,18 @@
-import { ReloadOutlined } from "@ant-design/icons";
-import {
-  Button,
-  Card,
-  Popconfirm,
-  Select,
-  Space,
-  Table,
-  Tag,
-  Typography,
-  message,
-} from "antd";
+import { ReloadOutlined, WechatOutlined } from "@ant-design/icons";
+import { Button, Card, message, Popconfirm, Select, Space, Table, Tag, Typography } from "antd";
 import type { ColumnsType, TablePaginationConfig } from "antd/es/table";
 import { useCallback, useEffect, useState } from "react";
 import { getErrorMessage } from "@/shared/api/helpers";
+import {
+  dispatchScenarioNotification,
+  listStudentContacts,
+} from "@/shared/api/notifications";
 import { listSafetyAlerts, resolveSafetyAlert, type SafetyAlert } from "@/shared/api/safety";
+import {
+  getSafetyLevelLabel,
+  getSafetyTypeLabel,
+  getStatusLabel,
+} from "@/shared/labels/localization";
 
 type SafetyAlertRow = {
   id: string;
@@ -22,6 +21,8 @@ type SafetyAlertRow = {
   title: string;
   description: string;
   source: string;
+  studentId: string;
+  studentName?: string;
   status: string;
   createdAt: string;
   resolvedAt: string;
@@ -46,10 +47,26 @@ function toRow(item: SafetyAlert): SafetyAlertRow {
     title: item.title,
     description: item.description,
     source: item.source,
+    studentId: item.student_id,
+    studentName: item.student_name,
     status: item.status,
     createdAt: formatDate(item.created_at),
     resolvedAt: formatDate(item.resolved_at),
   };
+}
+
+function formatStudent(row: SafetyAlertRow) {
+  const studentName = row.studentName?.trim();
+  const studentId = (row.studentId || row.source || "").trim();
+  if (studentName && studentId && studentName !== studentId) {
+    return `${studentName}（${studentId}）`;
+  }
+  return studentName || studentId || "该学生";
+}
+
+function fallbackWechatReceiver(row: SafetyAlertRow) {
+  const studentId = (row.studentId || row.source || "unknown").trim();
+  return `class_teacher_parent_${studentId}`;
 }
 
 function levelColor(level: string) {
@@ -81,6 +98,7 @@ export function SafetyPage() {
   const [pageSize, setPageSize] = useState(10);
   const [total, setTotal] = useState(0);
   const [statusFilter, setStatusFilter] = useState<string>("open");
+  const [sendingWechatId, setSendingWechatId] = useState<string | null>(null);
 
   const fetchAlerts = useCallback(
     async (targetPage: number, targetPageSize: number, targetStatus: string) => {
@@ -121,29 +139,66 @@ export function SafetyPage() {
     }
   };
 
+  const handleSendObservationWechat = async (row: SafetyAlertRow) => {
+    setSendingWechatId(row.id);
+    try {
+      const studentId = (row.studentId || row.source).trim();
+      const contacts = studentId
+        ? await listStudentContacts({ page: 1, pageSize: 1, keyword: studentId })
+        : null;
+      const contact = contacts?.items.find((item) => item.student_id === studentId) ?? contacts?.items[0];
+      const receiver = contact?.guardian_phone?.trim() || fallbackWechatReceiver(row);
+
+      await dispatchScenarioNotification({
+        scenario: "observation_notice",
+        channel: "wechat",
+        receiver,
+        student_name: contact?.student_name?.trim() || row.studentName || row.studentId,
+        destination: "医务室留观区",
+        note: `${row.description || "留观超时"}，请班主任或家长及时关注。`,
+      });
+
+      messageApi.success(`已发送 ${formatStudent(row)} 的留观微信通知`);
+    } catch (error) {
+      messageApi.error(getErrorMessage(error, "微信通知发送失败"));
+    } finally {
+      setSendingWechatId(null);
+    }
+  };
+
   const columns: ColumnsType<SafetyAlertRow> = [
     { title: "告警 ID", dataIndex: "id", width: 180 },
     {
       title: "级别",
       dataIndex: "level",
       width: 120,
-      render: (value: string) => <Tag color={levelColor(value)}>{value}</Tag>,
+      render: (value: string) => <Tag color={levelColor(value)}>{getSafetyLevelLabel(value)}</Tag>,
     },
-    { title: "类型", dataIndex: "type", width: 120 },
+    {
+      title: "类型",
+      dataIndex: "type",
+      width: 140,
+      render: (value: string) => getSafetyTypeLabel(value),
+    },
     { title: "标题", dataIndex: "title", width: 180 },
     { title: "描述", dataIndex: "description" },
-    { title: "来源", dataIndex: "source", width: 120 },
+    {
+      title: "来源",
+      dataIndex: "source",
+      width: 120,
+      render: (value: string) => (value === "system" ? "系统" : value),
+    },
     {
       title: "状态",
       dataIndex: "status",
       width: 120,
-      render: (value: string) => <Tag color={statusColor(value)}>{value}</Tag>,
+      render: (value: string) => <Tag color={statusColor(value)}>{getStatusLabel(value)}</Tag>,
     },
     { title: "触发时间", dataIndex: "createdAt", width: 180 },
     { title: "处理时间", dataIndex: "resolvedAt", width: 180 },
     {
       title: "操作",
-      width: 140,
+      width: 260,
       render: (_, row) => {
         const resolved = ["resolved", "closed", "done"].includes(row.status);
         if (resolved) {
@@ -151,16 +206,27 @@ export function SafetyPage() {
         }
 
         return (
-          <Popconfirm
-            title="确认标记为已处理？"
-            onConfirm={() => void handleResolve(row.id)}
-            okText="确认"
-            cancelText="取消"
-          >
-            <Button type="link" loading={resolvingId === row.id}>
-              标记已处理
-            </Button>
-          </Popconfirm>
+          <Space size={8} wrap>
+            {row.type === "observation_timeout" ? (
+              <Button
+                icon={<WechatOutlined />}
+                loading={sendingWechatId === row.id}
+                onClick={() => void handleSendObservationWechat(row)}
+              >
+                发微信
+              </Button>
+            ) : null}
+            <Popconfirm
+              title="确认标记为已处理？"
+              onConfirm={() => void handleResolve(row.id)}
+              okText="确认"
+              cancelText="取消"
+            >
+              <Button type="link" loading={resolvingId === row.id}>
+                标记已处理
+              </Button>
+            </Popconfirm>
+          </Space>
         );
       },
     },
@@ -189,7 +255,10 @@ export function SafetyPage() {
                 setPage(1);
               }}
             />
-            <Button icon={<ReloadOutlined />} onClick={() => void fetchAlerts(page, pageSize, statusFilter)}>
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={() => void fetchAlerts(page, pageSize, statusFilter)}
+            >
               刷新
             </Button>
           </Space>
@@ -218,4 +287,3 @@ export function SafetyPage() {
     </Space>
   );
 }
-

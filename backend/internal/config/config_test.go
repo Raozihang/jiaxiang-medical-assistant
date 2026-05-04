@@ -4,11 +4,13 @@ import "testing"
 
 func TestAuthConfigValidationRejectsUnsafeDefaults(t *testing.T) {
 	cfg := AuthConfig{
-		JWTSecret:      "replace-with-a-long-random-secret",
-		DoctorAccount:  "doctor",
-		DoctorPassword: "replace-with-doctor-password",
-		AdminAccount:   "admin",
-		AdminPassword:  "replace-with-admin-password",
+		JWTSecret:       "replace-with-a-long-random-secret",
+		StudentAccount:  "student",
+		StudentPassword: "replace-with-student-password",
+		DoctorAccount:   "doctor",
+		DoctorPassword:  "replace-with-doctor-password",
+		AdminAccount:    "admin",
+		AdminPassword:   "replace-with-admin-password",
 	}
 
 	if err := cfg.Validate(); err == nil {
@@ -18,11 +20,13 @@ func TestAuthConfigValidationRejectsUnsafeDefaults(t *testing.T) {
 
 func TestAuthConfigValidationRejectsAccountCollision(t *testing.T) {
 	cfg := AuthConfig{
-		JWTSecret:      "very-strong-secret",
-		DoctorAccount:  "same",
-		DoctorPassword: "doctor-password",
-		AdminAccount:   "same",
-		AdminPassword:  "admin-password",
+		JWTSecret:       "very-strong-secret",
+		StudentAccount:  "student",
+		StudentPassword: "student-password",
+		DoctorAccount:   "same",
+		DoctorPassword:  "doctor-password",
+		AdminAccount:    "same",
+		AdminPassword:   "admin-password",
 	}
 
 	if err := cfg.Validate(); err == nil {
@@ -32,11 +36,13 @@ func TestAuthConfigValidationRejectsAccountCollision(t *testing.T) {
 
 func TestAuthConfigValidationAcceptsSecureValues(t *testing.T) {
 	cfg := AuthConfig{
-		JWTSecret:      "very-strong-secret",
-		DoctorAccount:  "doctor",
-		DoctorPassword: "doctor-password",
-		AdminAccount:   "admin",
-		AdminPassword:  "admin-password",
+		JWTSecret:       "very-strong-secret",
+		StudentAccount:  "student",
+		StudentPassword: "student-password",
+		DoctorAccount:   "doctor",
+		DoctorPassword:  "doctor-password",
+		AdminAccount:    "admin",
+		AdminPassword:   "admin-password",
 	}
 
 	if err := cfg.Validate(); err != nil {

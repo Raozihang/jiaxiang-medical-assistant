@@ -10,12 +10,14 @@ import (
 func TestAuthServiceLoginAndVerifyToken(t *testing.T) {
 	cfg := config.Config{
 		Auth: config.AuthConfig{
-			JWTSecret:      "test-secret",
-			JWTExpiresIn:   3600,
-			DoctorAccount:  "doctor",
-			DoctorPassword: "doctor-password-123",
-			AdminAccount:   "admin",
-			AdminPassword:  "admin-password-123",
+			JWTSecret:       "test-secret",
+			JWTExpiresIn:    3600,
+			StudentAccount:  "student",
+			StudentPassword: "student-password-123",
+			DoctorAccount:   "doctor",
+			DoctorPassword:  "doctor-password-123",
+			AdminAccount:    "admin",
+			AdminPassword:   "admin-password-123",
 		},
 	}
 
@@ -50,11 +52,13 @@ func TestAuthServiceLoginAndVerifyToken(t *testing.T) {
 func TestAuthServiceRejectsInvalidCredentials(t *testing.T) {
 	cfg := config.Config{
 		Auth: config.AuthConfig{
-			JWTSecret:      "test-secret",
-			DoctorAccount:  "doctor",
-			DoctorPassword: "doctor-password-123",
-			AdminAccount:   "admin",
-			AdminPassword:  "admin-password-123",
+			JWTSecret:       "test-secret",
+			StudentAccount:  "student",
+			StudentPassword: "student-password-123",
+			DoctorAccount:   "doctor",
+			DoctorPassword:  "doctor-password-123",
+			AdminAccount:    "admin",
+			AdminPassword:   "admin-password-123",
 		},
 	}
 
@@ -74,11 +78,13 @@ func TestAuthServiceRejectsInvalidCredentials(t *testing.T) {
 func TestAuthServiceRejectsCollidingAccounts(t *testing.T) {
 	cfg := config.Config{
 		Auth: config.AuthConfig{
-			JWTSecret:      "test-secret",
-			DoctorAccount:  "same-account",
-			DoctorPassword: "doctor-password-123",
-			AdminAccount:   "same-account",
-			AdminPassword:  "admin-password-123",
+			JWTSecret:       "test-secret",
+			StudentAccount:  "student",
+			StudentPassword: "student-password-123",
+			DoctorAccount:   "same-account",
+			DoctorPassword:  "doctor-password-123",
+			AdminAccount:    "same-account",
+			AdminPassword:   "admin-password-123",
 		},
 	}
 

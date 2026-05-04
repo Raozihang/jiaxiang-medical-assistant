@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jiaxiang-medical-assistant/backend/internal/response"
@@ -79,7 +80,7 @@ func (h *ReportHandler) serveExcel(c *gin.Context, exportFn func(ctx context.Con
 	defer result.File.Close()
 
 	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-	c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, result.Filename))
+	c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"; filename*=UTF-8''%s`, result.Filename, url.PathEscape(result.Filename)))
 	c.Header("Cache-Control", "no-cache")
 
 	if err := result.File.Write(c.Writer); err != nil {

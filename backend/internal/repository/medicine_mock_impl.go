@@ -22,43 +22,46 @@ func (r *MockMedicineRepository) EnsureSeedData(_ context.Context) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if len(r.medicines) > 0 {
-		return nil
-	}
-
 	now := time.Now().UTC()
-	id1 := uuid.NewString()
-	r.medicines[id1] = Medicine{
-		ID:                   id1,
-		Name:                 "布洛芬片",
-		Specification:        "0.2g*24片",
-		Stock:                120,
-		SafeStock:            50,
-		ExpiryDate:           now.AddDate(1, 0, 0),
-		Warnings:             []string{"对布洛芬过敏者禁用"},
-		RecommendedDosage:    "0.2g",
-		RecommendedFrequency: "必要时每6到8小时一次",
-		RecommendedDuration:  "最多连续使用3天",
-		UsageInstructions:    "建议饭后服用；如出现胃部不适应立即停用",
-		CreatedAt:            now,
-		UpdatedAt:            now,
+	existingNames := make(map[string]struct{}, len(r.medicines))
+	for _, medicine := range r.medicines {
+		if medicine.Name != "" {
+			existingNames[medicine.Name] = struct{}{}
+		}
 	}
 
-	id2 := uuid.NewString()
-	r.medicines[id2] = Medicine{
-		ID:                id2,
-		Name:              "医用纱布",
-		Specification:     "10cm*10cm",
-		Stock:             30,
-		SafeStock:         40,
-		ExpiryDate:        now.AddDate(0, 1, 0),
-		Warnings:          []string{},
-		UsageInstructions: "仅限外用",
-		CreatedAt:         now,
-		UpdatedAt:         now,
+	for _, input := range defaultMedicineSeedInputs(now) {
+		if _, ok := existingNames[input.Name]; ok {
+			continue
+		}
+
+		id := uuid.NewString()
+		r.medicines[id] = mockMedicineFromInput(input, id, now)
+		existingNames[input.Name] = struct{}{}
 	}
 
 	return nil
+}
+
+func mockMedicineFromInput(input CreateMedicineInput, id string, now time.Time) Medicine {
+	threshold := now.AddDate(0, 0, 30)
+	return Medicine{
+		ID:                   id,
+		Name:                 input.Name,
+		Specification:        input.Specification,
+		Stock:                input.Stock,
+		SafeStock:            input.SafeStock,
+		ExpiryDate:           input.ExpiryDate.UTC(),
+		Warnings:             append([]string(nil), input.Warnings...),
+		RecommendedDosage:    input.RecommendedDosage,
+		RecommendedFrequency: input.RecommendedFrequency,
+		RecommendedDuration:  input.RecommendedDuration,
+		UsageInstructions:    input.UsageInstructions,
+		IsLowStock:           input.Stock < input.SafeStock,
+		IsExpiringSoon:       !input.ExpiryDate.After(threshold),
+		CreatedAt:            now,
+		UpdatedAt:            now,
+	}
 }
 
 func (r *MockMedicineRepository) List(_ context.Context, params MedicineListParams) (PageResult[Medicine], error) {
@@ -110,24 +113,7 @@ func (r *MockMedicineRepository) Create(_ context.Context, input CreateMedicineI
 	defer r.mu.Unlock()
 
 	now := time.Now().UTC()
-	threshold := now.AddDate(0, 0, 30)
-	medicine := Medicine{
-		ID:                   uuid.NewString(),
-		Name:                 input.Name,
-		Specification:        input.Specification,
-		Stock:                input.Stock,
-		SafeStock:            input.SafeStock,
-		ExpiryDate:           input.ExpiryDate.UTC(),
-		Warnings:             append([]string(nil), input.Warnings...),
-		RecommendedDosage:    input.RecommendedDosage,
-		RecommendedFrequency: input.RecommendedFrequency,
-		RecommendedDuration:  input.RecommendedDuration,
-		UsageInstructions:    input.UsageInstructions,
-		IsLowStock:           input.Stock < input.SafeStock,
-		IsExpiringSoon:       !input.ExpiryDate.After(threshold),
-		CreatedAt:            now,
-		UpdatedAt:            now,
-	}
+	medicine := mockMedicineFromInput(input, uuid.NewString(), now)
 	r.medicines[medicine.ID] = medicine
 
 	return medicine, nil
